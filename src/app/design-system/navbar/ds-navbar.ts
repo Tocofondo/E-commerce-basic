@@ -1,5 +1,6 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { DsButton } from '../button/ds-button';
 
 export interface NavLink {
@@ -11,14 +12,14 @@ export interface NavLink {
 @Component({
   selector: 'ds-navbar',
   standalone: true,
-  imports: [CommonModule, DsButton],
+  imports: [CommonModule, RouterLink, DsButton],
   template: `
     <header class="bg-surface border-b border-border sticky top-0 z-50">
       <div class="max-w-7xl mx-auto px-4 sm:px-6">
         <div class="flex items-center justify-between h-16">
 
           <!-- Logo -->
-          <a href="/" class="flex items-center gap-2 text-brand-600 font-bold text-xl">
+          <a routerLink="/" class="flex items-center gap-2 text-brand-600 font-bold text-xl">
             <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
             </svg>
@@ -29,7 +30,7 @@ export interface NavLink {
           <nav class="hidden md:flex items-center gap-1">
             @for (link of links; track link.href) {
               <a
-                [href]="link.href"
+                [routerLink]="link.href"
                 [class]="link.active
                   ? 'px-3 py-2 rounded-lg text-sm font-medium text-brand-600 bg-brand-50'
                   : 'px-3 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100 transition-colors'"

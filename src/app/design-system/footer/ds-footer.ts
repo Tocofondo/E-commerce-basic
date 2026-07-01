@@ -1,5 +1,6 @@
 import { Component, Input } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { RouterLink } from '@angular/router';
 
 export interface FooterColumn {
   title: string;
@@ -9,7 +10,7 @@ export interface FooterColumn {
 @Component({
   selector: 'ds-footer',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, RouterLink],
   template: `
     <footer class="bg-neutral-900 text-neutral-300">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 py-12">
@@ -44,7 +45,7 @@ export interface FooterColumn {
               <ul class="flex flex-col gap-2">
                 @for (link of col.links; track link.href) {
                   <li>
-                    <a [href]="link.href" class="text-sm text-neutral-400 hover:text-white transition-colors">
+                    <a [routerLink]="link.href" class="text-sm text-neutral-400 hover:text-white transition-colors">
                       {{ link.label }}
                     </a>
                   </li>
