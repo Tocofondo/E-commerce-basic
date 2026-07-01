@@ -1,0 +1,48 @@
+/*
+ * palette.css — WHITE-LABEL SWAP FILE
+ *
+ * Cambia SOLO este archivo para rebrandear completamente.
+ * Todas las clases Tailwind (bg-brand-*, text-brand-*) derivan de aquí.
+ *
+ * Herramienta para generar escalas: https://uicolors.app/create
+ */
+
+:root {
+  /* Brand — color primario de la marca */
+  --brand-50:  #eff6ff;
+  --brand-100: #dbeafe;
+  --brand-200: #bfdbfe;
+  --brand-300: #93c5fd;
+  --brand-400: #60a5fa;
+  --brand-500: #3b82f6;   /* ← color principal */
+  --brand-600: #2563eb;
+  --brand-700: #1d4ed8;
+  --brand-800: #1e40af;
+  --brand-900: #1e3a8a;
+  --brand-950: #172554;
+
+  /* Neutral — grises del sistema */
+  --neutral-50:  #f9fafb;
+  --neutral-100: #f3f4f6;
+  --neutral-200: #e5e7eb;
+  --neutral-300: #d1d5db;
+  --neutral-400: #9ca3af;
+  --neutral-500: #6b7280;
+  --neutral-600: #4b5563;
+  --neutral-700: #374151;
+  --neutral-800: #1f2937;
+  --neutral-900: #111827;
+
+  /* Semánticos */
+  --success: #22c55e;
+  --success-light: #dcfce7;
+  --error:   #ef4444;
+  --error-light: #fee2e2;
+  --warning: #f59e0b;
+  --warning-light: #fef3c7;
+
+  /* Superficie */
+  --surface:        #ffffff;
+  --surface-raised: #f9fafb;
+  --border:         #e5e7eb;
+}
