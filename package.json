@@ -6,7 +6,8 @@
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "deploy": "ng build --base-href /E-commerce-basic/ && npx angular-cli-ghpages --dir=dist/E-commerce-basic/browser"
   },
   "private": true,
   "packageManager": "npm@11.13.0",
