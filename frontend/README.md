@@ -12,12 +12,11 @@ Necesita el backend arriba para poder loguearse (ver `../backend/README.md`):
 ```bash
 cd ../backend
 cp .env.example .env
-docker compose up -d              # Postgres + pgAdmin
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-alembic upgrade head
-python -m app.db.seed              # crea los usuarios de prueba
-uvicorn app.main:app --reload      # http://localhost:8000
+docker compose up -d                   # Postgres + pgAdmin
+uv sync                                 # crea el .venv e instala deps (requiere uv)
+uv run alembic upgrade head
+uv run python -m app.db.seed            # crea los usuarios de prueba
+uv run uvicorn app.main:app --reload    # http://localhost:8000
 ```
 
 Y en otra terminal, el frontend:
@@ -41,7 +40,7 @@ otro host/puerto, ajustar ahí.
 
 ## Cuentas de prueba
 
-Las crea el seed del backend (`python -m app.db.seed`, ver `../backend/README.md`):
+Las crea el seed del backend (`uv run python -m app.db.seed`, ver `../backend/README.md`):
 
 | Rol      | Email              | Contraseña   |
 |----------|---------------------|--------------|

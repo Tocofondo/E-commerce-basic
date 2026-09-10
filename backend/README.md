@@ -1,6 +1,12 @@
 # Backend
 
 API en FastAPI + infraestructura de base de datos (PostgreSQL + pgAdmin vía Docker Compose).
+El venv y las dependencias los gestiona [uv](https://docs.astral.sh/uv/) (`pyproject.toml` +
+`uv.lock`). Instalar uv si no lo tenés:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 
 ## Arquitectura
 
@@ -36,17 +42,19 @@ estructura que `modules/auth`: `models.py` + `schemas.py` + `service.py` +
 ## Cómo levantarlo
 
 ```bash
-cp .env.example .env          # ajustar credenciales/SECRET_KEY si hace falta
-docker compose up -d          # levanta Postgres + pgAdmin
+cp .env.example .env              # ajustar credenciales/SECRET_KEY si hace falta
+docker compose up -d              # levanta Postgres + pgAdmin
 
-python3 -m venv .venv
-source .venv/bin/activate     # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
+uv sync                            # crea .venv e instala las deps (según uv.lock)
 
-alembic upgrade head           # crea las tablas
-python -m app.db.seed          # crea los usuarios de prueba (ver más abajo)
-uvicorn app.main:app --reload  # http://localhost:8000
+uv run alembic upgrade head        # crea las tablas
+uv run python -m app.db.seed       # crea los usuarios de prueba (ver más abajo)
+uv run uvicorn app.main:app --reload  # http://localhost:8000
 ```
+
+`uv run <comando>` corre `<comando>` dentro del `.venv` del proyecto sin necesidad de
+activarlo a mano. Si preferís activarlo (`source .venv/bin/activate`), después podés usar
+los comandos sueltos (`alembic ...`, `uvicorn ...`) igual que antes.
 
 - **API** → http://localhost:8000 (docs interactivas en `/docs`)
 - **PostgreSQL** → `localhost:5432`
@@ -70,7 +78,7 @@ forma de pedir `admin` por la API; un admin se crea por seed o a mano en la base
 ## Usuarios de prueba (seed)
 
 ```bash
-python -m app.db.seed
+uv run python -m app.db.seed
 ```
 
 Es idempotente (correrlo de nuevo no pisa nada si el usuario ya existe). Crea:
@@ -85,12 +93,22 @@ Para agregar más usuarios de prueba, sumar entradas a `SEED_USERS` en `app/db/s
 ## Migraciones
 
 ```bash
-alembic revision --autogenerate -m "descripción del cambio"
-alembic upgrade head
+uv run alembic revision --autogenerate -m "descripción del cambio"
+uv run alembic upgrade head
 ```
 
 La URL de conexión para Alembic sale de `app.core.config.settings` (o sea,
 del mismo `.env`), no hay que tocar `alembic.ini`.
+
+## Agregar/quitar dependencias
+
+```bash
+uv add nombre-paquete       # lo suma a pyproject.toml, actualiza uv.lock e instala
+uv remove nombre-paquete
+```
+
+No editar `pyproject.toml`/`uv.lock` a mano ni usar `pip install` suelto: se desincroniza
+del lockfile y deja de ser reproducible.
 
 ## Apagar
 
