@@ -15,7 +15,7 @@ cp .env.example .env
 docker compose up -d                   # Postgres + pgAdmin
 uv sync                                 # crea el .venv e instala deps (requiere uv)
 uv run alembic upgrade head
-uv run python -m app.db.seed            # crea los usuarios de prueba
+uv run python -m app.core.db.seed            # crea los usuarios de prueba
 uv run uvicorn app.main:app --reload    # http://localhost:8000
 ```
 
@@ -40,7 +40,7 @@ otro host/puerto, ajustar ahí.
 
 ## Cuentas de prueba
 
-Las crea el seed del backend (`uv run python -m app.db.seed`, ver `../backend/README.md`):
+Las crea el seed del backend (`uv run python -m app.core.db.seed`, ver `../backend/README.md`):
 
 | Rol      | Email              | Contraseña   |
 |----------|---------------------|--------------|

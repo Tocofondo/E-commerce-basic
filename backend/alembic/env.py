@@ -11,7 +11,7 @@ from alembic import context
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app.core.config import settings  # noqa: E402
-from app.db.base_metadata import Base  # noqa: E402  (importa además todos los modelos)
+from app.core.db.base_metadata import Base  # noqa: E402  (importa además todos los modelos)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

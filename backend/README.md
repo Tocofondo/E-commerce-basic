@@ -16,11 +16,11 @@ app/
     config.py         Settings (pydantic-settings), lee variables de entorno / .env
     logging.py        Setup de logging de la app
     security.py       Hashing de contraseñas y JWT
-  db/
-    session.py        Engine + SessionLocal + dependencia get_db
-    base.py            Base declarativa de SQLAlchemy
-    base_metadata.py   Importa todos los modelos (para Alembic autogenerate)
-    seed.py             Usuarios de prueba (python -m app.db.seed)
+    db/
+      session.py        Engine + SessionLocal + dependencia get_db
+      base.py            Base declarativa de SQLAlchemy
+      base_metadata.py   Importa todos los modelos (para Alembic autogenerate)
+      seed.py             Usuarios de prueba (python -m app.core.db.seed)
   api/
     v1/
       router.py         Agrega los routers de cada módulo bajo /api/v1
@@ -48,7 +48,7 @@ docker compose up -d              # levanta Postgres + pgAdmin
 uv sync                            # crea .venv e instala las deps (según uv.lock)
 
 uv run alembic upgrade head        # crea las tablas
-uv run python -m app.db.seed       # crea los usuarios de prueba (ver más abajo)
+uv run python -m app.core.db.seed       # crea los usuarios de prueba (ver más abajo)
 uv run uvicorn app.main:app --reload  # http://localhost:8000
 ```
 
@@ -78,7 +78,7 @@ forma de pedir `admin` por la API; un admin se crea por seed o a mano en la base
 ## Usuarios de prueba (seed)
 
 ```bash
-uv run python -m app.db.seed
+uv run python -m app.core.db.seed
 ```
 
 Es idempotente (correrlo de nuevo no pisa nada si el usuario ya existe). Crea:
@@ -88,7 +88,7 @@ Es idempotente (correrlo de nuevo no pisa nada si el usuario ya existe). Crea:
 | Admin    | `admin@demo.com`    | `admin1234`   |
 | Cliente  | `cliente@demo.com`  | `cliente1234` |
 
-Para agregar más usuarios de prueba, sumar entradas a `SEED_USERS` en `app/db/seed.py`.
+Para agregar más usuarios de prueba, sumar entradas a `SEED_USERS` en `app/core/db/seed.py`.
 
 ## Migraciones
 

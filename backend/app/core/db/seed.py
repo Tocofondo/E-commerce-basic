@@ -4,13 +4,13 @@ Idempotente: se puede correr las veces que sea, si el usuario ya existe no
 lo toca (no pisa la contraseña de alguien que ya la cambió).
 
 Uso:
-    python -m app.db.seed
+    python -m app.core.db.seed
 """
 
 import logging
 
 from app.core.logging import setup_logging
-from app.db.session import SessionLocal
+from app.core.db.session import SessionLocal
 from app.modules.auth.schemas import UserCreate, UserRole
 from app.modules.auth.service import create_user, get_user_by_email
 

@@ -7,7 +7,7 @@ from sqlalchemy import Boolean, CheckConstraint, DateTime, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
+from app.core.db.base import Base
 from app.modules.auth.schemas import UserRole
 
 
