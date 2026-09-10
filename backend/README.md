@@ -14,6 +14,7 @@ app/
     session.py        Engine + SessionLocal + dependencia get_db
     base.py            Base declarativa de SQLAlchemy
     base_metadata.py   Importa todos los modelos (para Alembic autogenerate)
+    seed.py             Usuarios de prueba (python -m app.db.seed)
   api/
     v1/
       router.py         Agrega los routers de cada módulo bajo /api/v1
@@ -43,6 +44,7 @@ source .venv/bin/activate     # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
 alembic upgrade head           # crea las tablas
+python -m app.db.seed          # crea los usuarios de prueba (ver más abajo)
 uvicorn app.main:app --reload  # http://localhost:8000
 ```
 
@@ -50,13 +52,35 @@ uvicorn app.main:app --reload  # http://localhost:8000
 - **PostgreSQL** → `localhost:5432`
 - **pgAdmin** → http://localhost:5050
 
+El frontend (`../frontend`) ya apunta a `http://localhost:8000/api/v1` para el login
+(`src/app/core/services/auth.service.ts` + `core/config/api.config.ts`); con CORS habilitado
+para `http://localhost:4200` (ver `CORS_ORIGINS` en `.env`).
+
 ## Endpoints de auth (`/api/v1/auth`)
 
 | Método | Ruta        | Descripción                                  |
 |--------|-------------|-----------------------------------------------|
-| POST   | `/register` | Crea un usuario (`email`, `password`, `full_name?`) |
+| POST   | `/register` | Crea un usuario `customer` (`email`, `password`, `full_name?`) |
 | POST   | `/login`    | Form-encoded (`username`=email, `password`), devuelve JWT |
-| GET    | `/me`       | Usuario actual (requiere `Authorization: Bearer <token>`) |
+| GET    | `/me`       | Usuario actual, incluye `role` (requiere `Authorization: Bearer <token>`) |
+
+`role` es `"customer"` o `"admin"`. El registro público siempre crea `"customer"` — no hay
+forma de pedir `admin` por la API; un admin se crea por seed o a mano en la base.
+
+## Usuarios de prueba (seed)
+
+```bash
+python -m app.db.seed
+```
+
+Es idempotente (correrlo de nuevo no pisa nada si el usuario ya existe). Crea:
+
+| Rol      | Email              | Contraseña    |
+|----------|---------------------|---------------|
+| Admin    | `admin@demo.com`    | `admin1234`   |
+| Cliente  | `cliente@demo.com`  | `cliente1234` |
+
+Para agregar más usuarios de prueba, sumar entradas a `SEED_USERS` en `app/db/seed.py`.
 
 ## Migraciones
 

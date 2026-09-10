@@ -12,7 +12,7 @@ export interface ShippingInfo {
 
 export interface Order {
   id: number;
-  userId: number;
+  userId: string;
   items: CartItem[];
   total: number;
   status: OrderStatus;

@@ -16,7 +16,7 @@ export class OrderService {
     this.nextId = Math.max(...this.orders().map(o => o.id), 0) + 1;
   }
 
-  place(userId: number, items: CartItem[], shipping: ShippingInfo): Order {
+  place(userId: string, items: CartItem[], shipping: ShippingInfo): Order {
     const order: Order = {
       id: this.nextId++,
       userId,
@@ -31,7 +31,7 @@ export class OrderService {
     return order;
   }
 
-  getByUser(userId: number): Order[] {
+  getByUser(userId: string): Order[] {
     return this.orders()
       .filter(o => o.userId === userId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));

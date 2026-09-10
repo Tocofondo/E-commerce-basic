@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, verify_password
 from app.modules.auth.models import User
-from app.modules.auth.schemas import UserCreate
+from app.modules.auth.schemas import UserCreate, UserRole
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,11 @@ def get_user_by_email(db: Session, email: str) -> User | None:
     return db.scalar(select(User).where(User.email == email))
 
 
-def create_user(db: Session, user_in: UserCreate) -> User:
+def create_user(db: Session, user_in: UserCreate, role: UserRole = "customer") -> User:
+    """Crea un usuario. `role` no es parte de `UserCreate` a propósito: el
+    endpoint público de registro nunca lo recibe del cliente. Solo código de
+    servidor (ej. el seed) puede pasar role="admin".
+    """
     if get_user_by_email(db, user_in.email) is not None:
         raise EmailAlreadyRegisteredError(user_in.email)
 
@@ -31,11 +35,12 @@ def create_user(db: Session, user_in: UserCreate) -> User:
         email=user_in.email,
         hashed_password=hash_password(user_in.password),
         full_name=user_in.full_name,
+        role=role,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
-    logger.info("Usuario registrado: %s", user.email)
+    logger.info("Usuario creado: %s (role=%s)", user.email, user.role)
     return user
 
 

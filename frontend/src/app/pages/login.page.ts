@@ -38,13 +38,15 @@ import { AuthService } from '../core/services/auth.service';
             <p class="text-sm text-error">{{ error() }}</p>
           }
 
-          <ds-button variant="primary" type="submit" [fullWidth]="true">Ingresar</ds-button>
+          <ds-button variant="primary" type="submit" [fullWidth]="true" [loading]="loading()">
+            Ingresar
+          </ds-button>
         </form>
 
         <div class="text-xs text-neutral-500 bg-neutral-50 border border-border rounded-lg p-3 leading-relaxed">
-          <p class="font-medium text-neutral-700 mb-1">Cuentas demo</p>
-          <p>Admin: admin&#64;demo.com / admin</p>
-          <p>Cliente: cliente&#64;demo.com / cliente</p>
+          <p class="font-medium text-neutral-700 mb-1">Cuentas demo (creadas con el seed del backend)</p>
+          <p>Admin: admin&#64;demo.com / admin1234</p>
+          <p>Cliente: cliente&#64;demo.com / cliente1234</p>
         </div>
 
         <a routerLink="/" class="text-sm text-center text-brand-600 hover:underline">Volver a la tienda</a>
@@ -60,9 +62,18 @@ export class LoginPage {
   email = '';
   password = '';
   error = signal('');
+  loading = signal(false);
 
-  onSubmit(): void {
-    const ok = this.auth.login(this.email, this.password);
+  async onSubmit(): Promise<void> {
+    this.error.set('');
+    this.loading.set(true);
+    let ok: boolean;
+    try {
+      ok = await this.auth.login(this.email, this.password);
+    } finally {
+      this.loading.set(false);
+    }
+
     if (!ok) {
       this.error.set('Email o contraseña incorrectos.');
       return;

@@ -1,17 +1,35 @@
 # E-commerce Basic — Prototipo
 
-Prototipo navegable de e-commerce hecho en **Angular 22** (standalone components + signals),
-sin backend: todos los datos (productos, sesión, carrito, pedidos) viven en memoria y se
-persisten en `localStorage` del navegador.
+Prototipo navegable de e-commerce hecho en **Angular 22** (standalone components + signals).
+El **login es real**, contra la API en FastAPI de `../backend`; el resto de los datos
+(productos, carrito, pedidos) todavía vive en memoria y se persiste en `localStorage` del
+navegador — ver [`../backend/README.md`](../backend/README.md) para lo ya migrado a backend.
 
 ## Cómo correrlo
+
+Necesita el backend arriba para poder loguearse (ver `../backend/README.md`):
+
+```bash
+cd ../backend
+cp .env.example .env
+docker compose up -d              # Postgres + pgAdmin
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+alembic upgrade head
+python -m app.db.seed              # crea los usuarios de prueba
+uvicorn app.main:app --reload      # http://localhost:8000
+```
+
+Y en otra terminal, el frontend:
 
 ```bash
 npm install
 npm start
 ```
 
-Abrir `http://localhost:4200`.
+Abrir `http://localhost:4200`. La URL de la API está hardcodeada en
+`src/app/core/config/api.config.ts` (`http://localhost:8000/api/v1`); si el backend corre en
+otro host/puerto, ajustar ahí.
 
 > Requiere Node **v22.22.3 / v24.15.0 / v26.0.0** o superior (mínimo exigido por Angular CLI 22).
 > Si tenés una versión anterior instalada, usá `nvm` para levantar una compatible:
@@ -23,12 +41,12 @@ Abrir `http://localhost:4200`.
 
 ## Cuentas de prueba
 
-No hay backend de autenticación real: el login valida contra dos usuarios mock.
+Las crea el seed del backend (`python -m app.db.seed`, ver `../backend/README.md`):
 
-| Rol      | Email              | Contraseña |
-|----------|---------------------|------------|
-| Cliente  | `cliente@demo.com`  | `cliente`  |
-| Admin    | `admin@demo.com`    | `admin`    |
+| Rol      | Email              | Contraseña   |
+|----------|---------------------|--------------|
+| Cliente  | `cliente@demo.com`  | `cliente1234`|
+| Admin    | `admin@demo.com`    | `admin1234`  |
 
 ## Estructura del proyecto
 
@@ -77,19 +95,22 @@ redirigen a `/login` (o a `/` si un cliente intenta entrar a `/admin`).
 
 ## Cómo fluyen los datos
 
-No hay servidor ni base de datos. Cada servicio en `core/services/` mantiene su propio
-estado con **signals** de Angular y lo persiste en `localStorage` en cada cambio:
+`AuthService` es el único que habla con un backend real: `login()` hace `POST /auth/login`
++ `GET /auth/me` contra la API de FastAPI (ver `core/interceptors/auth.interceptor.ts`, que
+agrega el `Authorization: Bearer <token>` a los pedidos hacia la API y desloguea si el
+backend responde 401). El resto de los servicios en `core/services/` todavía mantiene su
+propio estado con **signals** de Angular y lo persiste en `localStorage`:
 
 | Servicio            | Guarda en localStorage | Contenido |
 |-----------------------|:---:|---|
 | `ProductService`      | `ec_products` | Catálogo (con semilla inicial de ~8 productos) |
-| `AuthService`         | `ec_session`  | Usuario logueado actualmente |
+| `AuthService`         | `ec_session`  | Token JWT + usuario actual (viene del backend) |
 | `CartService`         | `ec_cart`     | Items del carrito |
 | `OrderService`        | `ec_orders`   | Pedidos realizados |
 
-Esto significa que **el catálogo, la sesión, el carrito y los pedidos sobreviven a un
-refresh de la página**, pero son locales a cada navegador — no se comparten entre
-distintos dispositivos ni usuarios reales.
+Esto significa que **la sesión es real y validada por el backend en cada login**, pero el
+catálogo, el carrito y los pedidos siguen siendo locales a cada navegador — no se comparten
+entre distintos dispositivos ni usuarios reales (todavía).
 
 ## Cómo se entera el admin de un pedido nuevo
 
@@ -136,20 +157,19 @@ Todos los componentes visuales (`ds-button`, `ds-input`, `ds-card-product`, `ds-
 etc.) están en `src/app/design-system/` y son reutilizables. Para rebrandear los colores
 de toda la app alcanza con editar `src/theme/palette.css` (variables CSS `--brand-*`).
 
-## Fuera de alcance de este prototipo
+## Fuera de alcance de este prototipo (por ahora)
 
 - Pagos reales (el checkout solo registra el pedido, no cobra).
 - Imágenes de producto subidas por el admin (se cargan por URL).
 - Envío automático de WhatsApp sin backend (ver sección anterior).
-- Sincronización de datos entre distintos dispositivos/usuarios (todo vive en
-  `localStorage` local).
+- Sincronización de catálogo/carrito/pedidos entre distintos dispositivos/usuarios (todavía
+  viven en `localStorage` local — el login ya no).
 - Tests automatizados.
 
-### Si más adelante se agrega backend
+### Próximos pasos (migrar el resto al backend)
 
-Para que pedidos, catálogo y sesión sean reales y compartidos entre dispositivos, el
-siguiente paso natural sería:
-1. Reemplazar los `Storage`/`localStorage` de cada servicio por llamadas HTTP a una API.
-2. Agregar autenticación real (JWT o sesión de servidor) en `AuthService`.
-3. Mover el envío de WhatsApp al backend usando la API oficial de WhatsApp Business, o
-   a un servicio de notificaciones (email, push) disparado al crear el pedido.
+El login ya sale de `../backend` (FastAPI + Postgres). Para que catálogo, carrito y pedidos
+sean reales y compartidos entre dispositivos, el siguiente paso natural es agregar esos
+módulos de negocio en `backend/app/modules/` (mismo patrón que `auth`: models + schemas +
+service + router) y reemplazar el `Storage`/`localStorage` de cada servicio del frontend por
+llamadas HTTP a esa API — `AuthService` ya sirve de referencia de cómo hacerlo.
