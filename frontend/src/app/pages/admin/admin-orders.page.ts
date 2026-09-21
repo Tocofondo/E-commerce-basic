@@ -69,6 +69,10 @@ export class AdminOrdersPage {
   private whatsapp = inject(WhatsappService);
   statuses = STATUSES;
 
+  constructor() {
+    this.orders.loadAll();
+  }
+
   onStatusChange(orderId: number, status: OrderStatus): void {
     this.orders.updateStatus(orderId, status);
   }

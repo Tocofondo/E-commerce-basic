@@ -1,13 +1,23 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnChanges, OnDestroy, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DsBadge, BadgeVariant } from '../badge/ds-badge';
 import { DsButton } from '../button/ds-button';
 import { DsPrice } from '../price/ds-price';
 
+// Intervalo entre imágenes y duración del fade: valores "prudentes" — ni
+// tan rápido que se sienta parpadeante, ni tan lento que no se note que hay
+// más de una foto.
+const CAROUSEL_INTERVAL_MS = 3500;
+const FADE_DURATION_MS = 250;
+
 export interface ProductCard {
   id: string | number;
   name: string;
   image: string;
+  // Opcional: si trae más de una, la card las rota sola. Solo pide `url`
+  // (no el tipo completo de ProductImage) para no acoplar el design-system
+  // a los modelos de la app.
+  images?: { url: string }[];
   price: number;
   originalPrice?: number;
   badge?: { label: string; variant: BadgeVariant };
@@ -23,16 +33,32 @@ export interface ProductCard {
   template: `
     <article class="bg-surface rounded-xl border border-border overflow-hidden hover:shadow-md transition-shadow group flex flex-col">
       <!-- imagen -->
-      <div class="relative overflow-hidden aspect-square bg-neutral-100">
+      <div
+        class="relative overflow-hidden aspect-square bg-neutral-100"
+        (mouseenter)="pauseCarousel()"
+        (mouseleave)="resumeCarousel()"
+      >
         <img
-          [src]="product.image"
+          [src]="currentImageUrl()"
           [alt]="product.name"
-          class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          class="w-full h-full object-cover group-hover:scale-105 transition-all duration-300"
+          [class.opacity-0]="fading()"
           loading="lazy"
         />
         @if (product.badge) {
           <div class="absolute top-3 left-3">
             <ds-badge [variant]="product.badge.variant">{{ product.badge.label }}</ds-badge>
+          </div>
+        }
+        @if (galleryImages().length > 1) {
+          <div class="absolute bottom-2.5 left-0 right-0 flex justify-center gap-1">
+            @for (img of galleryImages(); track $index) {
+              <span
+                class="w-1.5 h-1.5 rounded-full transition-colors"
+                [class.bg-surface]="$index === imageIndex()"
+                [class.bg-white/50]="$index !== imageIndex()"
+              ></span>
+            }
           </div>
         }
         <button
@@ -81,10 +107,75 @@ export interface ProductCard {
     </article>
   `,
 })
-export class DsCardProduct {
+export class DsCardProduct implements OnChanges, OnDestroy {
   @Input({ required: true }) product!: ProductCard;
   @Output() addToCart = new EventEmitter<string | number>();
   @Output() wishlistToggled = new EventEmitter<string | number>();
+
+  imageIndex = signal(0);
+  fading = signal(false);
+
+  private carouselTimer?: ReturnType<typeof setInterval>;
+  private fadeTimer?: ReturnType<typeof setTimeout>;
+  private hovered = false;
+
+  /** `product.images` si hay, si no una galería de una sola foto (`product.image`,
+   * ya con el fallback de placeholder aplicado por ProductService). */
+  galleryImages(): { url: string }[] {
+    return this.product.images?.length ? this.product.images : [{ url: this.product.image }];
+  }
+
+  currentImageUrl(): string {
+    return this.galleryImages()[this.imageIndex()]?.url ?? this.product.image;
+  }
+
+  ngOnChanges(): void {
+    this.imageIndex.set(0);
+    this.fading.set(false);
+    if (!this.hovered) this.restartCarousel();
+  }
+
+  ngOnDestroy(): void {
+    this.stopCarousel();
+  }
+
+  pauseCarousel(): void {
+    this.hovered = true;
+    this.stopCarousel();
+  }
+
+  resumeCarousel(): void {
+    this.hovered = false;
+    this.restartCarousel();
+  }
+
+  private restartCarousel(): void {
+    this.stopCarousel();
+    if (this.galleryImages().length > 1) {
+      this.carouselTimer = setInterval(() => this.advance(), CAROUSEL_INTERVAL_MS);
+    }
+  }
+
+  private stopCarousel(): void {
+    if (this.carouselTimer !== undefined) {
+      clearInterval(this.carouselTimer);
+      this.carouselTimer = undefined;
+    }
+    if (this.fadeTimer !== undefined) {
+      clearTimeout(this.fadeTimer);
+      this.fadeTimer = undefined;
+    }
+  }
+
+  /** Fade-out, cambia de foto, fade-in — evita el corte seco entre imágenes. */
+  private advance(): void {
+    this.fading.set(true);
+    this.fadeTimer = setTimeout(() => {
+      const count = this.galleryImages().length;
+      this.imageIndex.update(i => (i + 1) % count);
+      this.fading.set(false);
+    }, FADE_DURATION_MS);
+  }
 
   get stars(): number[] {
     return [1, 2, 3, 4, 5];

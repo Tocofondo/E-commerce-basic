@@ -7,6 +7,7 @@ otros módulos importan `settings` desde este archivo en vez de leer
 """
 
 from functools import lru_cache
+from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, PostgresDsn, computed_field
@@ -61,6 +62,14 @@ class Settings(BaseSettings):
     )
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 día
+
+    # --- Archivos estáticos (imágenes de producto) ---
+    # URL pública con la que se arma el link absoluto de cada imagen
+    # (ProductImage.url) — cambiar en .env si el backend no corre en localhost.
+    BACKEND_PUBLIC_URL: str = "http://localhost:8000"
+    STATIC_DIR: Path = Path("static")
+    STATIC_URL_PREFIX: str = "/static"
+    MAX_IMAGE_SIZE_MB: int = 5
 
 
 @lru_cache

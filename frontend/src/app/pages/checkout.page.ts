@@ -45,7 +45,13 @@ import { Order, ShippingInfo } from '../core/models/order.model';
             <ds-input label="Ciudad" [required]="true" [(ngModel)]="shipping.city" name="city" />
             <ds-input label="Código postal" [required]="true" [(ngModel)]="shipping.postalCode" name="postalCode" />
 
-            <ds-button variant="primary" type="submit" [fullWidth]="true">Confirmar pedido</ds-button>
+            @if (error()) {
+              <p class="text-sm text-error">{{ error() }}</p>
+            }
+
+            <ds-button variant="primary" type="submit" [fullWidth]="true" [loading]="loading()">
+              Confirmar pedido
+            </ds-button>
           </form>
 
           <div class="flex flex-col gap-3">
@@ -74,14 +80,24 @@ export class CheckoutPage {
 
   shipping: ShippingInfo = { fullName: '', phone: '', address: '', city: '', postalCode: '' };
   placedOrder = signal<Order | null>(null);
+  error = signal('');
+  loading = signal(false);
 
-  onSubmit(): void {
-    const user = this.auth.currentUser();
-    if (!user) return;
+  async onSubmit(): Promise<void> {
+    if (!this.auth.currentUser()) return;
 
-    const order = this.orders.place(user.id, this.cart.items(), this.shipping);
-    this.cart.clear();
-    this.placedOrder.set(order);
+    this.error.set('');
+    this.loading.set(true);
+    try {
+      const order = await this.orders.place(this.cart.items(), this.shipping);
+      this.cart.clear();
+      this.placedOrder.set(order);
+    } catch {
+      // El backend responde 400 si algún producto quedó sin stock suficiente.
+      this.error.set('No se pudo confirmar el pedido. Verificá el stock disponible e intentá de nuevo.');
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   whatsappLink(order: Order): string {

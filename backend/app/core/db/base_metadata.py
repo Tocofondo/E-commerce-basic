@@ -10,5 +10,7 @@ from app.core.db.base import Base
 
 # Importar acá cada modelo nuevo que se agregue en app/modules/*/models.py
 from app.modules.auth.models import User  # noqa: F401
+from app.modules.orders.models import Order, OrderItem  # noqa: F401
+from app.modules.products.models import Product, ProductImage  # noqa: F401
 
 __all__ = ["Base"]

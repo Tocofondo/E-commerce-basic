@@ -3,7 +3,6 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { DsBadge, DsButton } from '../design-system/index';
 import { OrderService } from '../core/services/order.service';
-import { AuthService } from '../core/services/auth.service';
 import { OrderStatus } from '../core/models/order.model';
 import { BadgeVariant } from '../design-system/badge/ds-badge';
 
@@ -61,12 +60,13 @@ const STATUS_VARIANT: Record<OrderStatus, BadgeVariant> = {
 })
 export class OrdersPage {
   private orderSrv = inject(OrderService);
-  private auth = inject(AuthService);
 
-  orders = computed(() => {
-    const user = this.auth.currentUser();
-    return user ? this.orderSrv.getByUser(user.id) : [];
-  });
+  // El backend ya filtra por el usuario autenticado (GET /orders/me).
+  orders = computed(() => this.orderSrv.orders());
+
+  constructor() {
+    this.orderSrv.loadMine();
+  }
 
   statusVariant(status: OrderStatus): BadgeVariant {
     return STATUS_VARIANT[status];

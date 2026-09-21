@@ -1,4 +1,4 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
@@ -16,11 +16,30 @@ import { CartService } from '../core/services/cart.service';
         <a routerLink="/productos" class="text-sm text-brand-600 hover:underline">&larr; Volver a productos</a>
 
         <div class="grid sm:grid-cols-2 gap-8 mt-6">
-          <div class="relative aspect-square bg-neutral-100 rounded-xl overflow-hidden">
-            <img [src]="product.image" [alt]="product.name" class="w-full h-full object-cover" />
-            @if (product.badge) {
-              <div class="absolute top-4 left-4">
-                <ds-badge [variant]="product.badge.variant">{{ product.badge.label }}</ds-badge>
+          <div class="flex flex-col gap-3">
+            <div class="relative aspect-square bg-neutral-100 rounded-xl overflow-hidden">
+              <img [src]="mainImage()" [alt]="product.name" class="w-full h-full object-cover" />
+              @if (product.badge) {
+                <div class="absolute top-4 left-4">
+                  <ds-badge [variant]="product.badge.variant">{{ product.badge.label }}</ds-badge>
+                </div>
+              }
+            </div>
+
+            @if (product.images.length > 1) {
+              <div class="flex gap-2">
+                @for (img of product.images; track img.id; let i = $index) {
+                  <button
+                    type="button"
+                    (click)="selectedIndex.set(i)"
+                    class="w-16 h-16 rounded-lg overflow-hidden border-2 transition-colors"
+                    [class.border-brand-500]="i === selectedIndex()"
+                    [class.border-border]="i !== selectedIndex()"
+                    [attr.aria-label]="'Ver imagen ' + (i + 1)"
+                  >
+                    <img [src]="img.url" [alt]="product.name" class="w-full h-full object-cover" />
+                  </button>
+                }
               </div>
             }
           </div>
@@ -75,8 +94,24 @@ export class ProductDetailPage {
 
   product = computed(() => this.productsSrv.getById(this.id()));
 
+  // Índice de la galería seleccionado; `product.image` (la primera imagen)
+  // es el fallback cuando el producto no tiene ninguna imagen cargada.
+  selectedIndex = signal(0);
+  mainImage = computed(() => {
+    const product = this.product();
+    return product?.images[this.selectedIndex()]?.url ?? product?.image ?? '';
+  });
+
   qty = signal(1);
   added = signal(false);
+
+  constructor() {
+    // Al navegar a otro producto, volver a arrancar en la primera imagen.
+    effect(() => {
+      this.id();
+      this.selectedIndex.set(0);
+    });
+  }
 
   increaseQty(): void {
     this.qty.update(q => q + 1);

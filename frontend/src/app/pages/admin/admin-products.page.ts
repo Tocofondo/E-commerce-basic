@@ -53,9 +53,12 @@ import { ProductService } from '../../core/services/product.service';
 export class AdminProductsPage {
   products = inject(ProductService);
 
-  onDelete(id: string | number): void {
-    if (confirm('¿Eliminar este producto?')) {
-      this.products.remove(Number(id));
+  async onDelete(id: string | number): Promise<void> {
+    if (!confirm('¿Eliminar este producto?')) return;
+    try {
+      await this.products.remove(Number(id));
+    } catch {
+      alert('No se pudo eliminar el producto.');
     }
   }
 }

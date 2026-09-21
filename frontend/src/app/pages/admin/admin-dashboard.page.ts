@@ -32,6 +32,10 @@ export class AdminDashboardPage {
   private products = inject(ProductService);
   private orders = inject(OrderService);
 
+  constructor() {
+    this.orders.loadAll();
+  }
+
   productCount = computed(() => this.products.products().length);
   orderCount = computed(() => this.orders.orders().length);
   totalSales = computed(() => this.orders.orders().reduce((sum, o) => sum + o.total, 0));
