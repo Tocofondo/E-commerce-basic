@@ -48,14 +48,15 @@ The API base URL is hardcoded in `src/app/core/config/api.config.ts`
 (`http://localhost:8000/api/v1`) — edit it if the backend runs elsewhere. No
 eslint config is set up; `.prettierrc` governs formatting.
 
-### Test accounts (from backend seed)
+### Accounts
 
-| Role     | Email               | Password      |
-|----------|---------------------|---------------|
-| Admin    | `admin@demo.com`    | `admin1234`   |
-| Customer | `cliente@demo.com`  | `cliente1234` |
-
-Add more via `SEED_USERS` in `backend/app/core/db/seed.py`.
+`SEED_USERS` in `backend/app/core/db/seed.py` is empty by default — no demo
+accounts are seeded, so the app behaves like a real prod deployment: customers
+sign up for real at `/register` (`POST /auth/register`, always role
+`"customer"`). To bootstrap an admin locally, temporarily add a tuple to
+`SEED_USERS` (see the comment there) and run the seed, or create one directly
+with `create_user(db, user_in, role="admin")` from a Python shell — there is
+no public endpoint that can create an admin.
 
 ## Architecture
 

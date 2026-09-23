@@ -69,10 +69,10 @@ export interface NavLink {
               }
             </button>
 
-            <!-- CTA login -->
+            <!-- CTA login / cuenta -->
             <div class="hidden sm:block ml-1">
               <ds-button size="sm" variant="secondary" (clicked)="loginClicked.emit()">
-                Ingresar
+                {{ authLabel }}
               </ds-button>
             </div>
           </div>
@@ -86,6 +86,7 @@ export class DsNavbar {
   @Input() brandName = 'Mi Tienda';
   @Input() links: NavLink[] = [];
   @Input() cartCount = 0;
+  @Input() authLabel = 'Ingresar';
   @Output() cartClicked = new EventEmitter<void>();
   @Output() searchClicked = new EventEmitter<void>();
   @Output() loginClicked = new EventEmitter<void>();

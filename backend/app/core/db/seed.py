@@ -22,18 +22,16 @@ from app.modules.products.service import create_product
 
 logger = logging.getLogger(__name__)
 
-# Mismas cuentas demo que tenía el mock del frontend (admin@demo.com / admin,
-# cliente@demo.com / cliente), para no romper la experiencia de "probar ya".
-SEED_USERS: list[tuple[UserCreate, UserRole]] = [
-    (
-        UserCreate(email="admin@demo.com", password="admin1234", full_name="Admin Demo"),
-        "admin",
-    ),
-    (
-        UserCreate(email="cliente@demo.com", password="cliente1234", full_name="Cliente Demo"),
-        "customer",
-    ),
-]
+# Ya no se siembran cuentas demo acá para que el login se comporte como en
+# prod real (los clientes se registran desde /register; el registro público
+# nunca puede pisar el role, un admin siempre se crea server-side). Las
+# cuentas de prueba viven en `seed_local.py`, un archivo sin trackear en git
+# (ver backend/.gitignore) que no se sube al repo ni queda visible para quien
+# clone el proyecto — solo existe en esta máquina.
+try:
+    from app.core.db.seed_local import SEED_USERS
+except ImportError:
+    SEED_USERS: list[tuple[UserCreate, UserRole]] = []
 
 # Mismo catálogo mock que tenía ProductService en el frontend
 # (frontend/src/app/core/services/product.service.ts), movido acá para que

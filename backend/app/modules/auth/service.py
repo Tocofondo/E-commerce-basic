@@ -33,6 +33,7 @@ def create_user(db: Session, user_in: UserCreate, role: UserRole = "customer") -
 
     user = User(
         email=user_in.email,
+        phone=user_in.phone,
         hashed_password=hash_password(user_in.password),
         full_name=user_in.full_name,
         role=role,
@@ -51,3 +52,10 @@ def authenticate_user(db: Session, email: str, password: str) -> User | None:
     if not user.is_active:
         return None
     return user
+
+
+def set_password(db: Session, user: User, new_password: str) -> None:
+    user.hashed_password = hash_password(new_password)
+    db.add(user)
+    db.commit()
+    logger.info("Contraseña actualizada (reset): %s", user.email)

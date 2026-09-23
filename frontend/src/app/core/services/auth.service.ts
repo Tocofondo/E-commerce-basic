@@ -20,9 +20,17 @@ interface LoginResponse {
 interface MeResponse {
   id: string;
   email: string;
+  phone: string;
   full_name: string | null;
   role: UserRole;
   is_active: boolean;
+}
+
+export interface RegisterData {
+  email: string;
+  phone: string;
+  password: string;
+  fullName?: string;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -59,9 +67,69 @@ export class AuthService {
       return false;
     }
 
+    await this.hydrateSession(tokenResponse.access_token);
+    return true;
+  }
+
+  /**
+   * Crea la cuenta contra `POST /auth/register` y, si sale bien, loguea de
+   * una (mismo endpoint que usaría el usuario a mano después). Devuelve un
+   * mensaje de error si falla (ej. email ya registrado), o null si salió bien.
+   */
+  async register(data: RegisterData): Promise<string | null> {
+    try {
+      await firstValueFrom(
+        this.http.post(`${API_BASE_URL}/auth/register`, {
+          email: data.email,
+          phone: data.phone,
+          password: data.password,
+          full_name: data.fullName || null,
+        }),
+      );
+    } catch (err: any) {
+      if (err?.status === 409) {
+        return 'Ya existe una cuenta con ese email.';
+      }
+      return 'No se pudo crear la cuenta. Probá de nuevo.';
+    }
+
+    const ok = await this.login(data.email, data.password);
+    return ok ? null : 'Cuenta creada, pero no se pudo iniciar sesión automáticamente. Ingresá manualmente.';
+  }
+
+  /** Siempre resuelve (el backend no revela si el email existe o no). */
+  async forgotPassword(email: string): Promise<void> {
+    try {
+      await firstValueFrom(this.http.post(`${API_BASE_URL}/auth/forgot-password`, { email }));
+    } catch {
+      // Se ignora: el backend devuelve 200 siempre; un error acá es de red.
+    }
+  }
+
+  /** Devuelve true si la contraseña se actualizó, false si el token es inválido/expiró. */
+  async resetPassword(token: string, newPassword: string): Promise<boolean> {
+    try {
+      await firstValueFrom(
+        this.http.post(`${API_BASE_URL}/auth/reset-password`, {
+          token,
+          new_password: newPassword,
+        }),
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  logout(): void {
+    this.session.set(null);
+    this.storage.save(STORAGE_KEY, null);
+  }
+
+  private async hydrateSession(token: string): Promise<void> {
     const me = await firstValueFrom(
       this.http.get<MeResponse>(`${API_BASE_URL}/auth/me`, {
-        headers: { Authorization: `Bearer ${tokenResponse.access_token}` },
+        headers: { Authorization: `Bearer ${token}` },
       }),
     );
 
@@ -69,16 +137,11 @@ export class AuthService {
       id: me.id,
       name: me.full_name ?? me.email,
       email: me.email,
+      phone: me.phone,
       role: me.role,
     };
 
-    this.session.set({ token: tokenResponse.access_token, user });
+    this.session.set({ token, user });
     this.storage.save(STORAGE_KEY, this.session());
-    return true;
-  }
-
-  logout(): void {
-    this.session.set(null);
-    this.storage.save(STORAGE_KEY, null);
   }
 }

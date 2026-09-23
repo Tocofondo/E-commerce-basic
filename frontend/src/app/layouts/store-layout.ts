@@ -13,6 +13,7 @@ import { CartService } from '../core/services/cart.service';
       brandName="Mi Tienda"
       [links]="navLinks"
       [cartCount]="cart.count()"
+      [authLabel]="auth.currentUser()?.name ?? 'Ingresar'"
       (cartClicked)="router.navigate(['/carrito'])"
       (searchClicked)="router.navigate(['/productos'])"
       (loginClicked)="onLoginClick()"

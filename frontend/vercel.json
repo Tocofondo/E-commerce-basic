@@ -1,0 +1,5 @@
+{
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist/E-commerce-basic/browser",
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}

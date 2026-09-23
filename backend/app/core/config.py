@@ -41,10 +41,20 @@ class Settings(BaseSettings):
     POSTGRES_DB: str = "ecommerce"
     POSTGRES_HOST: str = "localhost"
     POSTGRES_PORT: int = 5432
+    # Requerido por proveedores managed (Neon, Supabase, Render Postgres, ...);
+    # vacío en local, donde no hay TLS.
+    POSTGRES_SSLMODE: str = ""
+
+    # Si se define, pisa por completo la URL armada a partir de los POSTGRES_*
+    # de arriba — útil para pegar tal cual la connection string que da un
+    # proveedor managed (ej. Neon) en vez de descomponerla en sus partes.
+    DATABASE_URL_OVERRIDE: str | None = Field(default=None, alias="DATABASE_URL")
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def DATABASE_URL(self) -> str:
+        if self.DATABASE_URL_OVERRIDE:
+            return self.DATABASE_URL_OVERRIDE
         dsn = PostgresDsn.build(
             scheme="postgresql+psycopg",
             username=self.POSTGRES_USER,
@@ -52,6 +62,7 @@ class Settings(BaseSettings):
             host=self.POSTGRES_HOST,
             port=self.POSTGRES_PORT,
             path=self.POSTGRES_DB,
+            query=f"sslmode={self.POSTGRES_SSLMODE}" if self.POSTGRES_SSLMODE else None,
         )
         return str(dsn)
 
@@ -62,6 +73,20 @@ class Settings(BaseSettings):
     )
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 día
+
+    # --- Frontend (para armar el link de "olvidé mi contraseña") ---
+    FRONTEND_URL: str = "http://localhost:4200"
+
+    # --- SMTP (envío del email de "olvidé mi contraseña") ---
+    # Si SMTP_HOST queda vacío, no se manda el mail: se loguea el link de
+    # reseteo en la consola del backend, para poder probar el flujo en local
+    # sin credenciales de un servidor de correo real.
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_USE_TLS: bool = True
+    SMTP_FROM: str = "no-reply@mitienda.com"
 
     # --- Archivos estáticos (imágenes de producto) ---
     # URL pública con la que se arma el link absoluto de cada imagen

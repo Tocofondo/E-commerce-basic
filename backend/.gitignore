@@ -4,3 +4,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 static/
+
+# Cuentas de prueba locales (ver app/core/db/seed.py) — nunca se suben al repo.
+app/core/db/seed_local.py

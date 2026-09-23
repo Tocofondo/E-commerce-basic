@@ -4,6 +4,9 @@ import { AdminLayout } from './layouts/admin-layout';
 import { authGuard } from './core/guards/auth.guard';
 import { adminGuard } from './core/guards/admin.guard';
 import { LoginPage } from './pages/login.page';
+import { RegisterPage } from './pages/register.page';
+import { ForgotPasswordPage } from './pages/forgot-password.page';
+import { ResetPasswordPage } from './pages/reset-password.page';
 import { HomePage } from './pages/home.page';
 import { CatalogPage } from './pages/catalog.page';
 import { ProductDetailPage } from './pages/product-detail.page';
@@ -18,6 +21,9 @@ import { AdminOrdersPage } from './pages/admin/admin-orders.page';
 
 export const routes: Routes = [
   { path: 'login', component: LoginPage },
+  { path: 'register', component: RegisterPage },
+  { path: 'forgot-password', component: ForgotPasswordPage },
+  { path: 'reset-password', component: ResetPasswordPage },
   {
     path: '',
     component: StoreLayout,

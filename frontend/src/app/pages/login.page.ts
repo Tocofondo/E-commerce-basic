@@ -34,6 +34,8 @@ import { AuthService } from '../core/services/auth.service';
             name="password"
           />
 
+          <a routerLink="/forgot-password" class="text-sm text-brand-600 hover:underline self-end">¿Olvidaste tu contraseña?</a>
+
           @if (error()) {
             <p class="text-sm text-error">{{ error() }}</p>
           }
@@ -43,11 +45,10 @@ import { AuthService } from '../core/services/auth.service';
           </ds-button>
         </form>
 
-        <div class="text-xs text-neutral-500 bg-neutral-50 border border-border rounded-lg p-3 leading-relaxed">
-          <p class="font-medium text-neutral-700 mb-1">Cuentas demo (creadas con el seed del backend)</p>
-          <p>Admin: admin&#64;demo.com / admin1234</p>
-          <p>Cliente: cliente&#64;demo.com / cliente1234</p>
-        </div>
+        <p class="text-sm text-center text-neutral-500">
+          ¿No tenés cuenta?
+          <a routerLink="/register" class="text-brand-600 hover:underline">Registrate</a>
+        </p>
 
         <a routerLink="/" class="text-sm text-center text-brand-600 hover:underline">Volver a la tienda</a>
       </div>

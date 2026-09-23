@@ -12,6 +12,7 @@ UserRole = Literal["customer", "admin"]
 
 class UserCreate(BaseModel):
     email: EmailStr
+    phone: str = Field(min_length=6, max_length=30)
     password: str = Field(min_length=8, max_length=128)
     full_name: str | None = Field(default=None, max_length=255)
     # Sin campo `role`: el registro público siempre crea "customer".
@@ -23,6 +24,7 @@ class UserRead(BaseModel):
 
     id: uuid.UUID
     email: EmailStr
+    phone: str
     full_name: str | None
     role: UserRole
     is_active: bool
@@ -35,3 +37,13 @@ class Token(BaseModel):
 
 class TokenPayload(BaseModel):
     sub: str | None = None
+    scope: str | None = None
+
+
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str = Field(min_length=8, max_length=128)
