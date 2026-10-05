@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.router import api_router
-from app.core.config import settings
+from app.core.config import INSECURE_DEFAULT_SECRET_KEY, settings
 from app.core.logging import setup_logging
 
 setup_logging()
@@ -15,9 +15,24 @@ logger = logging.getLogger(__name__)
 
 
 def create_app() -> FastAPI:
+    is_production = settings.ENVIRONMENT == "production"
+
+    # Con la clave por defecto cualquiera puede firmar un JWT de admin: en
+    # producción mejor no arrancar que arrancar inseguro.
+    if is_production and settings.SECRET_KEY == INSECURE_DEFAULT_SECRET_KEY:
+        raise RuntimeError(
+            "SECRET_KEY tiene el valor por defecto: definí una propia en el .env "
+            "antes de levantar la API con ENVIRONMENT=production."
+        )
+
     app = FastAPI(
         title=settings.APP_NAME,
         debug=settings.DEBUG,
+        # Swagger/ReDoc solo fuera de producción: no exponer el mapa de la
+        # API al público.
+        docs_url=None if is_production else "/docs",
+        redoc_url=None if is_production else "/redoc",
+        openapi_url=None if is_production else "/openapi.json",
     )
 
     app.add_middleware(

@@ -1,0 +1,2 @@
+# Secretos de producción: solo viven en el servidor.
+.env

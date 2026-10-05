@@ -13,6 +13,10 @@ from typing import Literal
 from pydantic import Field, PostgresDsn, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Default de SECRET_KEY: solo sirve para desarrollo local. `create_app()`
+# (app/main.py) se niega a arrancar con ENVIRONMENT=production si sigue así.
+INSECURE_DEFAULT_SECRET_KEY = "change-me-in-.env-this-is-not-secure"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -68,7 +72,7 @@ class Settings(BaseSettings):
 
     # --- Auth / JWT ---
     SECRET_KEY: str = Field(
-        default="change-me-in-.env-this-is-not-secure",
+        default=INSECURE_DEFAULT_SECRET_KEY,
         description="Clave usada para firmar los JWT. Obligatorio cambiarla fuera de local.",
     )
     JWT_ALGORITHM: str = "HS256"

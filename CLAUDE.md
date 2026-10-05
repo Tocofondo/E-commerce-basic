@@ -44,19 +44,40 @@ npm run build        # ng build
 npm test             # ng test (no spec files exist yet)
 ```
 
-The API base URL is hardcoded in `src/app/core/config/api.config.ts`
-(`http://localhost:8000/api/v1`) — edit it if the backend runs elsewhere. No
-eslint config is set up; `.prettierrc` governs formatting.
+The API base URL comes from `src/environments/`: `environment.development.ts`
+(`http://localhost:8000/api/v1`, used by `npm start` via `fileReplacements`)
+and `environment.ts` (`/api/v1`, relative, used by `npm run build` — in
+production Caddy serves frontend and API from the same domain). No eslint
+config is set up; `.prettierrc` governs formatting.
+
+### Production deploy (`deploy/`, see `DEPLOY.md`)
+
+Single-server stack: `deploy/docker-compose.yml` runs `web` (Caddy built from
+`frontend/Dockerfile`, serves the Angular build and proxies `/api/*`,
+`/static/*`, `/health` to the backend), `backend` (`backend/Dockerfile`, runs
+`alembic upgrade head` on start) and `postgres`. Only Caddy publishes ports.
+Config lives in `deploy/.env` (from `deploy/.env.example`, git-ignored); the
+compose file forces `ENVIRONMENT=production` and derives `FRONTEND_URL`,
+`BACKEND_PUBLIC_URL` and `CORS_ORIGINS` from `PUBLIC_URL`. With
+`ENVIRONMENT=production` the API refuses to start with the default
+`SECRET_KEY` and disables `/docs`/`/redoc`/`/openapi.json`.
+
+```bash
+cd deploy && docker compose up -d --build
+docker compose exec backend uv run python -m app.core.db.create_admin   # first admin
+./backup.sh                                                              # pg_dump + static images
+```
 
 ### Accounts
 
 `SEED_USERS` in `backend/app/core/db/seed.py` is empty by default — no demo
 accounts are seeded, so the app behaves like a real prod deployment: customers
 sign up for real at `/register` (`POST /auth/register`, always role
-`"customer"`). To bootstrap an admin locally, temporarily add a tuple to
-`SEED_USERS` (see the comment there) and run the seed, or create one directly
-with `create_user(db, user_in, role="admin")` from a Python shell — there is
-no public endpoint that can create an admin.
+`"customer"`). To bootstrap an admin, run `uv run python -m
+app.core.db.create_admin` (interactive; promotes an existing customer if the
+email is taken), or locally add a tuple to `SEED_USERS` in the git-ignored
+`app/core/db/seed_local.py` and run the seed — there is no public endpoint
+that can create an admin.
 
 ## Architecture
 
