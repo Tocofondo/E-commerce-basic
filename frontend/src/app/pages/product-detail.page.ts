@@ -2,14 +2,14 @@ import { Component, computed, effect, inject, signal } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { map } from 'rxjs';
-import { DsBadge, DsButton, DsPrice } from '../design-system/index';
+import { DsBadge, DsButton, DsPrice, DsSpinner } from '../design-system/index';
 import { ProductService } from '../core/services/product.service';
 import { CartService } from '../core/services/cart.service';
 
 @Component({
   selector: 'app-product-detail-page',
   standalone: true,
-  imports: [RouterLink, DsBadge, DsButton, DsPrice],
+  imports: [RouterLink, DsBadge, DsButton, DsPrice, DsSpinner],
   template: `
     @if (product(); as product) {
       <main class="max-w-5xl mx-auto px-4 sm:px-6 py-10">
@@ -61,29 +61,41 @@ import { CartService } from '../core/services/cart.service';
               </div>
               <ds-button
                 variant="primary"
-                [disabled]="product.stock === 0"
+                [disabled]="available() === 0"
                 (clicked)="onAddToCart(product)"
               >
-                {{ product.stock === 0 ? 'Sin stock' : 'Agregar al carrito' }}
+                {{ product.stock === 0 ? 'Sin stock' : available() === 0 ? 'Ya está todo en tu carrito' : 'Agregar al carrito' }}
               </ds-button>
             </div>
 
-            @if (added()) {
-              <p class="text-sm text-success">Producto agregado al carrito.</p>
+            @if (message(); as msg) {
+              <p class="text-sm" [class.text-success]="msg.ok" [class.text-error]="!msg.ok">{{ msg.text }}</p>
             }
           </div>
         </div>
       </main>
+    } @else if (!productsSrv.loaded() && !productsSrv.error()) {
+      <main class="max-w-5xl mx-auto px-4 sm:px-6 py-16 flex justify-center">
+        <ds-spinner size="lg" />
+      </main>
+    } @else if (productsSrv.error(); as error) {
+      <main class="max-w-5xl mx-auto px-4 sm:px-6 py-16 flex flex-col items-center gap-4 text-center">
+        <p class="text-neutral-500">{{ error }}</p>
+        <ds-button variant="primary" [loading]="productsSrv.loading()" (clicked)="productsSrv.refresh()">
+          Reintentar
+        </ds-button>
+      </main>
     } @else {
-      <main class="max-w-5xl mx-auto px-4 sm:px-6 py-16 text-center text-neutral-500">
-        Producto no encontrado.
+      <main class="max-w-5xl mx-auto px-4 sm:px-6 py-16 flex flex-col items-center gap-4 text-center text-neutral-500">
+        <p>Producto no encontrado.</p>
+        <a routerLink="/productos" class="text-sm text-brand-600 hover:underline">Ver todos los productos</a>
       </main>
     }
   `,
 })
 export class ProductDetailPage {
   private route = inject(ActivatedRoute);
-  private productsSrv = inject(ProductService);
+  productsSrv = inject(ProductService);
   private cart = inject(CartService);
   router = inject(Router);
 
@@ -103,18 +115,27 @@ export class ProductDetailPage {
   });
 
   qty = signal(1);
-  added = signal(false);
+  message = signal<{ ok: boolean; text: string } | null>(null);
+
+  /** Unidades que todavía se pueden agregar (stock menos lo que ya está en
+   * el carrito): tope del selector de cantidad. */
+  available = computed(() => {
+    const product = this.product();
+    return product ? Math.max(0, product.stock - this.cart.qtyOf(product.id)) : 0;
+  });
 
   constructor() {
     // Al navegar a otro producto, volver a arrancar en la primera imagen.
     effect(() => {
       this.id();
       this.selectedIndex.set(0);
+      this.qty.set(1);
+      this.message.set(null);
     });
   }
 
   increaseQty(): void {
-    this.qty.update(q => q + 1);
+    this.qty.update(q => Math.min(q + 1, Math.max(1, this.available())));
   }
 
   decreaseQty(): void {
@@ -122,8 +143,15 @@ export class ProductDetailPage {
   }
 
   onAddToCart(product: NonNullable<ReturnType<typeof this.product>>): void {
-    this.cart.add(product, this.qty());
-    this.added.set(true);
+    const requested = this.qty();
+    const added = this.cart.add(product, requested);
+    if (added === 0) {
+      this.message.set({ ok: false, text: 'No quedan más unidades disponibles de este producto.' });
+    } else if (added < requested) {
+      this.message.set({ ok: true, text: `Se agregaron ${added} (no hay más stock disponible).` });
+    } else {
+      this.message.set({ ok: true, text: 'Producto agregado al carrito.' });
+    }
     this.qty.set(1);
   }
 }

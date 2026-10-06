@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, verify_password
 from app.modules.auth.models import User
-from app.modules.auth.schemas import UserCreate, UserRole
+from app.modules.auth.schemas import UserCreate, UserRole, normalize_email
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +20,10 @@ class EmailAlreadyRegisteredError(Exception):
 
 
 def get_user_by_email(db: Session, email: str) -> User | None:
-    return db.scalar(select(User).where(User.email == email))
+    # Normaliza también acá (no solo en los schemas): el login llega como
+    # form (`OAuth2PasswordRequestForm.username`) y el `sub` de los JWT
+    # viejos puede tener mayúsculas.
+    return db.scalar(select(User).where(User.email == normalize_email(email)))
 
 
 def create_user(db: Session, user_in: UserCreate, role: UserRole = "customer") -> User:

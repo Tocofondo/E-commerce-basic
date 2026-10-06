@@ -16,8 +16,18 @@ export interface Product extends ProductCard {
   images: ProductImage[];
 }
 
-// Payload de creación/edición: sin `id` (lo asigna el backend), sin
-// `image`/`images` (las imágenes se suben aparte vía
-// ProductService.uploadImages, ver backend/app/modules/products) y sin
-// `inStock` (derivado server-side de `stock`).
-export type ProductInput = Omit<Product, 'id' | 'image' | 'images' | 'inStock'>;
+// Payload de creación/edición desde el admin. Sin `id` (lo asigna el
+// backend), sin `image`/`images` (se suben aparte vía
+// ProductService.uploadImages), sin `inStock` (derivado de `stock`) y sin
+// `rating`/`reviewCount` (el form no los edita). La edición es parcial
+// (PATCH): lo que no viaja queda como estaba; `null` explícito lo borra
+// (ej. sacar el badge o el precio anterior).
+export interface ProductInput {
+  name: string;
+  category: string;
+  description: string;
+  price: number;
+  originalPrice: number | null;
+  stock: number;
+  badge: Product['badge'] | null;
+}

@@ -1,9 +1,10 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
 import { User, UserRole } from '../models/user.model';
 import { Storage } from './storage';
+import { apiErrorMessage } from '../http-error';
 
 const STORAGE_KEY = 'ec_session';
 
@@ -48,27 +49,27 @@ export class AuthService {
   isLoggedIn = computed(() => this.session() !== null);
   isAdmin = computed(() => this.currentUser()?.role === 'admin');
 
-  /** Devuelve true si el login fue exitoso, false si las credenciales son inválidas. */
-  async login(email: string, password: string): Promise<boolean> {
+  /** Devuelve null si el login fue exitoso, o el mensaje de error para
+   * mostrar (credenciales inválidas, demasiados intentos, sin conexión...). */
+  async login(email: string, password: string): Promise<string | null> {
     const body = new URLSearchParams();
     body.set('username', email);
     body.set('password', password);
 
-    let tokenResponse: LoginResponse;
     try {
-      tokenResponse = await firstValueFrom(
+      const tokenResponse = await firstValueFrom(
         this.http.post<LoginResponse>(`${API_BASE_URL}/auth/login`, body.toString(), {
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         }),
       );
-    } catch {
-      // Credenciales incorrectas (401) o backend no disponible: en ambos
-      // casos el login simplemente falla, el llamador decide qué mostrar.
-      return false;
+      await this.hydrateSession(tokenResponse.access_token);
+      return null;
+    } catch (err) {
+      if (err instanceof HttpErrorResponse && err.status === 401) {
+        return 'Email o contraseña incorrectos.';
+      }
+      return apiErrorMessage(err, 'No se pudo iniciar sesión. Probá de nuevo.');
     }
-
-    await this.hydrateSession(tokenResponse.access_token);
-    return true;
   }
 
   /**
@@ -86,28 +87,34 @@ export class AuthService {
           full_name: data.fullName || null,
         }),
       );
-    } catch (err: any) {
-      if (err?.status === 409) {
+    } catch (err) {
+      if (err instanceof HttpErrorResponse && err.status === 409) {
         return 'Ya existe una cuenta con ese email.';
       }
-      return 'No se pudo crear la cuenta. Probá de nuevo.';
+      return apiErrorMessage(err, 'No se pudo crear la cuenta. Revisá los datos y probá de nuevo.');
     }
 
-    const ok = await this.login(data.email, data.password);
-    return ok ? null : 'Cuenta creada, pero no se pudo iniciar sesión automáticamente. Ingresá manualmente.';
+    const loginError = await this.login(data.email, data.password);
+    return loginError
+      ? 'Cuenta creada, pero no se pudo iniciar sesión automáticamente. Ingresá manualmente.'
+      : null;
   }
 
-  /** Siempre resuelve (el backend no revela si el email existe o no). */
-  async forgotPassword(email: string): Promise<void> {
+  /** Devuelve null si el pedido salió (el backend responde igual exista o
+   * no el email), o un mensaje si no se pudo enviar (sin conexión,
+   * demasiados pedidos seguidos). */
+  async forgotPassword(email: string): Promise<string | null> {
     try {
       await firstValueFrom(this.http.post(`${API_BASE_URL}/auth/forgot-password`, { email }));
-    } catch {
-      // Se ignora: el backend devuelve 200 siempre; un error acá es de red.
+      return null;
+    } catch (err) {
+      return apiErrorMessage(err, 'No se pudo enviar el pedido. Probá de nuevo.');
     }
   }
 
-  /** Devuelve true si la contraseña se actualizó, false si el token es inválido/expiró. */
-  async resetPassword(token: string, newPassword: string): Promise<boolean> {
+  /** Devuelve null si la contraseña se actualizó, o el mensaje de error
+   * (link inválido/expirado/ya usado, sin conexión...). */
+  async resetPassword(token: string, newPassword: string): Promise<string | null> {
     try {
       await firstValueFrom(
         this.http.post(`${API_BASE_URL}/auth/reset-password`, {
@@ -115,9 +122,9 @@ export class AuthService {
           new_password: newPassword,
         }),
       );
-      return true;
-    } catch {
-      return false;
+      return null;
+    } catch (err) {
+      return apiErrorMessage(err, 'El link es inválido o expiró. Pedí uno nuevo.');
     }
   }
 

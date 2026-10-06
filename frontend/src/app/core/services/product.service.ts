@@ -4,6 +4,7 @@ import { firstValueFrom } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
 import { PRODUCT_IMAGE_PLACEHOLDER } from '../config/app.config.constants';
 import { Product, ProductImage, ProductInput } from '../models/product.model';
+import { apiErrorMessage } from '../http-error';
 
 // El catálogo ahora vive en el backend (tabla `products`, ver
 // backend/app/modules/products). El JSON usa camelCase (alias de Pydantic),
@@ -22,15 +23,32 @@ export class ProductService {
   private http = inject(HttpClient);
 
   products = signal<Product[]>([]);
+  /** Hay un pedido del catálogo en curso. */
+  loading = signal(false);
+  /** El catálogo se cargó al menos una vez: recién ahí "no está en
+   * `products`" significa "no existe" y no "todavía no llegó". */
+  loaded = signal(false);
+  /** Mensaje del último error al cargar el catálogo ('' si salió bien). */
+  error = signal('');
 
   constructor() {
     this.refresh();
   }
 
-  /** Vuelve a pedir el catálogo completo al backend. */
+  /** Vuelve a pedir el catálogo completo al backend. Nunca rechaza: si
+   * falla, deja el mensaje en `error` para que la vista ofrezca reintentar. */
   async refresh(): Promise<void> {
-    const list = await firstValueFrom(this.http.get<Product[]>(`${API_BASE_URL}/products`));
-    this.products.set(list.map(withImageFallback));
+    this.loading.set(true);
+    this.error.set('');
+    try {
+      const list = await firstValueFrom(this.http.get<Product[]>(`${API_BASE_URL}/products`));
+      this.products.set(list.map(withImageFallback));
+      this.loaded.set(true);
+    } catch (err) {
+      this.error.set(apiErrorMessage(err, 'No se pudo cargar el catálogo.'));
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   /** Busca en el catálogo ya cargado en memoria (no pega a la API). */
@@ -48,7 +66,7 @@ export class ProductService {
 
   async update(id: number, data: ProductInput): Promise<Product> {
     const updated = withImageFallback(
-      await firstValueFrom(this.http.put<Product>(`${API_BASE_URL}/products/${id}`, data)),
+      await firstValueFrom(this.http.patch<Product>(`${API_BASE_URL}/products/${id}`, data)),
     );
     this.products.update(list => list.map(p => (Number(p.id) === id ? updated : p)));
     return updated;

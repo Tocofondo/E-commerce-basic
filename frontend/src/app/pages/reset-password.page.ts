@@ -86,15 +86,15 @@ export class ResetPasswordPage {
     }
 
     this.loading.set(true);
-    let ok: boolean;
+    let errorMessage: string | null;
     try {
-      ok = await this.auth.resetPassword(this.token, this.password);
+      errorMessage = await this.auth.resetPassword(this.token, this.password);
     } finally {
       this.loading.set(false);
     }
 
-    if (!ok) {
-      this.error.set('El link es inválido o expiró. Pedí uno nuevo.');
+    if (errorMessage) {
+      this.error.set(errorMessage);
       return;
     }
 

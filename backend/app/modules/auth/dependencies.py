@@ -9,7 +9,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.security import decode_access_token
+from app.core.security import decode_access_token, password_fingerprint
 from app.core.db.session import get_db
 from app.modules.auth.models import User
 from app.modules.auth.schemas import TokenPayload
@@ -38,6 +38,9 @@ def get_current_user(
 
     user = get_user_by_email(db, token_data.sub)
     if user is None:
+        raise credentials_exception
+    # Token emitido antes del último cambio de contraseña: sesión revocada.
+    if token_data.pwd != password_fingerprint(user.hashed_password):
         raise credentials_exception
     return user
 

@@ -1,21 +1,32 @@
-import { Component, inject } from '@angular/core';
+import { Component, inject, signal } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { OrderService } from '../../core/services/order.service';
+import { DsButton, DsSpinner } from '../../design-system/index';
+import { ALLOWED_TRANSITIONS, OrderService } from '../../core/services/order.service';
+import { ProductService } from '../../core/services/product.service';
+import { apiErrorMessage } from '../../core/http-error';
 import { WhatsappService } from '../../core/services/whatsapp.service';
 import { Order, OrderStatus } from '../../core/models/order.model';
-
-const STATUSES: OrderStatus[] = ['pendiente', 'pagado', 'enviado', 'entregado', 'cancelado'];
 
 @Component({
   selector: 'app-admin-orders-page',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, FormsModule],
+  imports: [DatePipe, DecimalPipe, DsButton, DsSpinner],
   template: `
     <div class="flex flex-col gap-6">
       <h1 class="text-2xl font-bold text-neutral-800">Pedidos</h1>
 
-      @if (orders.orders().length === 0) {
+      @if (statusError()) {
+        <p class="text-sm text-error">{{ statusError() }}</p>
+      }
+
+      @if (orders.loading()) {
+        <div class="py-10 flex justify-center"><ds-spinner size="lg" /></div>
+      } @else if (orders.error()) {
+        <div class="py-10 flex flex-col items-center gap-4 text-center">
+          <p class="text-neutral-500 text-sm">{{ orders.error() }}</p>
+          <ds-button variant="primary" (clicked)="orders.loadAll()">Reintentar</ds-button>
+        </div>
+      } @else if (orders.orders().length === 0) {
         <p class="text-neutral-500 text-sm">Todavía no hay pedidos.</p>
       } @else {
         <div class="bg-surface border border-border rounded-xl overflow-hidden">
@@ -40,13 +51,16 @@ const STATUSES: OrderStatus[] = ['pendiente', 'pagado', 'enviado', 'entregado', 
                   <td class="px-4 py-3 text-neutral-600">{{ order.shipping.phone }}</td>
                   <td class="px-4 py-3 text-neutral-600">{{ order.total | number: '1.2-2' }}</td>
                   <td class="px-4 py-3">
+                    <!-- Solo el estado actual y los siguientes válidos (mismo mapa
+                         que el backend). Select nativo, sin ngModel, para
+                         poder volverlo atrás si el cambio falla o se cancela. -->
                     <select
-                      [ngModel]="order.status"
-                      (ngModelChange)="onStatusChange(order.id, $event)"
-                      class="rounded-lg border border-border bg-surface text-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500"
+                      (change)="onStatusChange(order, $any($event.target))"
+                      [disabled]="nextStatuses(order).length === 0 || updatingId() === order.id"
+                      class="rounded-lg border border-border bg-surface text-sm px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-500 disabled:opacity-60"
                     >
-                      @for (status of statuses; track status) {
-                        <option [value]="status">{{ status }}</option>
+                      @for (status of [order.status].concat(nextStatuses(order)); track status) {
+                        <option [value]="status" [selected]="status === order.status">{{ status }}</option>
                       }
                     </select>
                   </td>
@@ -66,15 +80,45 @@ const STATUSES: OrderStatus[] = ['pendiente', 'pagado', 'enviado', 'entregado', 
 })
 export class AdminOrdersPage {
   orders = inject(OrderService);
+  private products = inject(ProductService);
   private whatsapp = inject(WhatsappService);
-  statuses = STATUSES;
+
+  statusError = signal('');
+  updatingId = signal<number | null>(null);
 
   constructor() {
     this.orders.loadAll();
   }
 
-  onStatusChange(orderId: number, status: OrderStatus): void {
-    this.orders.updateStatus(orderId, status);
+  nextStatuses(order: Order): OrderStatus[] {
+    return ALLOWED_TRANSITIONS[order.status];
+  }
+
+  async onStatusChange(order: Order, select: HTMLSelectElement): Promise<void> {
+    const status = select.value as OrderStatus;
+    this.statusError.set('');
+
+    if (
+      status === 'cancelado' &&
+      !confirm(`¿Cancelar el pedido #${order.id}? Se devuelve el stock y no se puede deshacer.`)
+    ) {
+      select.value = order.status;
+      return;
+    }
+
+    this.updatingId.set(order.id);
+    try {
+      await this.orders.updateStatus(order.id, status);
+      // Cancelar repone stock en el backend: refrescar el catálogo.
+      if (status === 'cancelado') this.products.refresh();
+    } catch (err) {
+      select.value = order.status;
+      this.statusError.set(
+        apiErrorMessage(err, `No se pudo cambiar el estado del pedido #${order.id}.`),
+      );
+    } finally {
+      this.updatingId.set(null);
+    }
   }
 
   customerWhatsappLink(order: Order): string {
