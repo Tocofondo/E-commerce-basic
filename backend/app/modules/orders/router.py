@@ -14,6 +14,7 @@ from app.modules.orders.models import Order
 from app.modules.orders.schemas import OrderCreate, OrderRead, OrderStatusUpdate
 from app.modules.orders.service import (
     InsufficientStockError,
+    InvalidStatusTransitionError,
     OrderNotFoundError,
     ProductNotFoundError,
     create_order,
@@ -38,7 +39,7 @@ def create(
     except ProductNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Producto {exc} no encontrado",
+            detail="Uno de los productos del pedido ya no existe en el catálogo",
         ) from exc
     except InsufficientStockError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -75,3 +76,5 @@ def update_status(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Pedido no encontrado"
         ) from exc
+    except InvalidStatusTransitionError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

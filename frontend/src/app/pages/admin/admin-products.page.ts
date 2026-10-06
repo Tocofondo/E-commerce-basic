@@ -3,6 +3,7 @@ import { DecimalPipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { DsButton } from '../../design-system/index';
 import { ProductService } from '../../core/services/product.service';
+import { apiErrorMessage } from '../../core/http-error';
 
 @Component({
   selector: 'app-admin-products-page',
@@ -57,8 +58,8 @@ export class AdminProductsPage {
     if (!confirm('¿Eliminar este producto?')) return;
     try {
       await this.products.remove(Number(id));
-    } catch {
-      alert('No se pudo eliminar el producto.');
+    } catch (err) {
+      alert(apiErrorMessage(err, 'No se pudo eliminar el producto.'));
     }
   }
 }

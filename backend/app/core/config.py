@@ -78,6 +78,10 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 día
 
+    # Límite de intentos en login/registro/reset (ver core/rate_limit.py).
+    # Se puede apagar para tests o debugging local.
+    RATE_LIMIT_ENABLED: bool = True
+
     # --- Frontend (para armar el link de "olvidé mi contraseña") ---
     FRONTEND_URL: str = "http://localhost:4200"
 

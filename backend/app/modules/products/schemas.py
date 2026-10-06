@@ -8,7 +8,7 @@ servicio del frontend no tiene que mapear campos manualmente.
 import uuid
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 from pydantic.alias_generators import to_camel
 
 BadgeVariant = Literal["sale", "new", "out-of-stock", "featured", "neutral"]
@@ -49,8 +49,30 @@ class ProductCreate(ProductBase):
     pass
 
 
-class ProductUpdate(ProductBase):
-    pass
+class ProductUpdate(BaseModel):
+    """Actualización parcial: solo se tocan los campos que vienen en el body
+    (ver `update_product`). Un campo ausente queda como estaba; `null`
+    explícito lo borra (ej. `"badge": null` saca el badge)."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = None
+    category: str | None = Field(default=None, min_length=1, max_length=100)
+    price: float | None = Field(default=None, ge=0)
+    original_price: float | None = Field(default=None, ge=0)
+    stock: int | None = Field(default=None, ge=0)
+    rating: float | None = Field(default=None, ge=0, le=5)
+    review_count: int | None = Field(default=None, ge=0)
+    badge: BadgeInfo | None = None
+
+    @model_validator(mode="after")
+    def _required_fields_not_null(self) -> "ProductUpdate":
+        # Estos pueden faltar, pero no venir en null (la columna es NOT NULL).
+        for field in ("name", "description", "category", "price", "stock"):
+            if field in self.model_fields_set and getattr(self, field) is None:
+                raise ValueError(f"'{to_camel(field)}' no puede ser null")
+        return self
 
 
 class ProductRead(ProductBase):

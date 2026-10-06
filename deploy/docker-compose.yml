@@ -41,6 +41,10 @@ services:
       FRONTEND_URL: ${PUBLIC_URL}
       BACKEND_PUBLIC_URL: ${PUBLIC_URL}
       CORS_ORIGINS: '["${PUBLIC_URL}"]'
+      # El backend solo es accesible a través de Caddy (red interna), así que
+      # se puede confiar en su X-Forwarded-For: uvicorn lo usa como IP del
+      # cliente, que es lo que mira el límite de intentos del login.
+      FORWARDED_ALLOW_IPS: '*'
     volumes:
       # Imágenes de producto subidas por el admin: en un volumen para que
       # sobrevivan a rebuilds/reinicios del contenedor.

@@ -33,6 +33,10 @@ import { AuthService } from '../core/services/auth.service';
               name="email"
             />
 
+            @if (error()) {
+              <p class="text-sm text-error">{{ error() }}</p>
+            }
+
             <ds-button variant="primary" type="submit" [fullWidth]="true" [loading]="loading()">
               Enviar link
             </ds-button>
@@ -50,13 +54,20 @@ export class ForgotPasswordPage {
   email = '';
   loading = signal(false);
   sent = signal(false);
+  error = signal('');
 
   async onSubmit(): Promise<void> {
+    this.error.set('');
     this.loading.set(true);
+    let errorMessage: string | null;
     try {
-      await this.auth.forgotPassword(this.email);
+      errorMessage = await this.auth.forgotPassword(this.email);
     } finally {
       this.loading.set(false);
+    }
+    if (errorMessage) {
+      this.error.set(errorMessage);
+      return;
     }
     this.sent.set(true);
   }
