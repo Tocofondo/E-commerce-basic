@@ -20,10 +20,14 @@ export interface NavLink {
 
           <!-- Logo -->
           <a routerLink="/" class="flex items-center gap-2 text-brand-600 font-bold text-xl">
-            <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
-            </svg>
-            <span>{{ brandName }}</span>
+            @if (logoSrc) {
+              <img [src]="logoSrc" [alt]="brandName" class="h-7 sm:h-8 w-auto" decoding="async" />
+            } @else {
+              <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+              </svg>
+              <span>{{ brandName }}</span>
+            }
           </a>
 
           <!-- Nav links — desktop -->
@@ -84,6 +88,8 @@ export interface NavLink {
 })
 export class DsNavbar {
   @Input() brandName = 'Mi Tienda';
+  /** Logo como imagen (reemplaza al ícono + nombre en texto). */
+  @Input() logoSrc = '';
   @Input() links: NavLink[] = [];
   @Input() cartCount = 0;
   @Input() authLabel = 'Ingresar';

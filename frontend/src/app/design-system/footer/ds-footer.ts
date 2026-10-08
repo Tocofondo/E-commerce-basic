@@ -20,7 +20,11 @@ export interface FooterColumn {
 
           <!-- Brand column -->
           <div class="col-span-2 md:col-span-1">
-            <span class="text-white font-bold text-lg">{{ brandName }}</span>
+            @if (logoSrc) {
+              <img [src]="logoSrc" [alt]="brandName" class="h-7 w-auto" decoding="async" />
+            } @else {
+              <span class="text-white font-bold text-lg">{{ brandName }}</span>
+            }
             @if (tagline) {
               <p class="mt-2 text-sm text-neutral-400 leading-relaxed">{{ tagline }}</p>
             }
@@ -71,6 +75,8 @@ export interface FooterColumn {
 })
 export class DsFooter {
   @Input() brandName = 'Mi Tienda';
+  /** Logo como imagen (reemplaza al nombre en texto). */
+  @Input() logoSrc = '';
   @Input() tagline = '';
   @Input() columns: FooterColumn[] = [];
   @Input() socials: { label: string; href: string }[] = [];

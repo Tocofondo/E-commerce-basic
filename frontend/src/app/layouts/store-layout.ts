@@ -11,6 +11,7 @@ import { CartService } from '../core/services/cart.service';
   template: `
     <ds-navbar
       brandName="VACONYAPA"
+      logoSrc="brand/logos/vaconyapa-horizontal-fondo-claro.svg"
       [links]="navLinks"
       [cartCount]="cart.count()"
       [authLabel]="auth.currentUser()?.name ?? 'Ingresar'"
@@ -23,6 +24,7 @@ import { CartService } from '../core/services/cart.service';
 
     <ds-footer
       brandName="VACONYAPA"
+      logoSrc="brand/logos/vaconyapa-horizontal-fondo-oscuro.svg"
       tagline="Bueno, barato y con yapa. Envíos a todo Rosario."
       [columns]="footerColumns"
       [socials]="[
