@@ -1,0 +1,6 @@
+// Punto de entrada de los estilos de marca.
+// En src/styles.scss agregá una sola línea:  @use 'styles/vaconyapa';
+@use 'tokens';
+@use 'fonts';
+@use 'base';
+@use 'components';

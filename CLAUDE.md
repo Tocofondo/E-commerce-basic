@@ -108,6 +108,15 @@ src/app/
   design-system/  Reusable UI components (ds-button, ds-card-product, ...).
                    Do not modify — it's the app's visual foundation. Rebrand
                    colors via src/theme/palette.css (--brand-* CSS variables).
+  shared/brand/   VACONYAPA brand kit components (vy-logo, vy-yapa,
+                   vy-product-card, brand-demo at /marca). Global `vy-*`
+                   classes + `--vy-*` tokens come from src/styles/vaconyapa/,
+                   loaded through src/brand.scss (separate `styles` entry in
+                   angular.json — Tailwind v4 doesn't go through Sass). The
+                   kit's dark `_base.scss` is NOT applied globally (the store
+                   is light); wrap a section in `.vy-oscuro` instead. Asset
+                   paths must stay relative (no leading `/`): the GitHub Pages
+                   deploy runs under `--base-href /E-commerce-basic/`.
   core/
     models/        Product, User, CartItem, Order interfaces
     services/      App state as signals; `ProductService`/`OrderService`

@@ -18,12 +18,14 @@ import { AdminDashboardPage } from './pages/admin/admin-dashboard.page';
 import { AdminProductsPage } from './pages/admin/admin-products.page';
 import { AdminProductFormPage } from './pages/admin/admin-product-form.page';
 import { AdminOrdersPage } from './pages/admin/admin-orders.page';
+import { BrandDemoComponent } from './shared/brand/brand-demo.component';
 
 export const routes: Routes = [
   { path: 'login', component: LoginPage },
   { path: 'register', component: RegisterPage },
   { path: 'forgot-password', component: ForgotPasswordPage },
   { path: 'reset-password', component: ResetPasswordPage },
+  { path: 'marca', component: BrandDemoComponent },
   {
     path: '',
     component: StoreLayout,

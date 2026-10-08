@@ -1,0 +1,20 @@
+// Fuentes servidas desde el propio bundle (no dependen de Google Fonts).
+// Ya vienen recortadas a caracteres latinos y del español (á é í ó ú ñ ü ¿ ¡ $).
+// Rutas relativas (no `/fonts/...`): el build las emite con hash y funcionan
+// también bajo un sub-path como el de GitHub Pages (`--base-href`).
+
+@font-face {
+  font-family: 'Permanent Marker';
+  src: url('./fonts/permanent-marker-latin.woff') format('woff');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Montserrat';
+  src: url('./fonts/montserrat-variable-latin.woff') format('woff');
+  font-weight: 100 900; // fuente variable: cualquier peso entre 100 y 900
+  font-style: normal;
+  font-display: swap;
+}

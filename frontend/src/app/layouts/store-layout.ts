@@ -10,7 +10,7 @@ import { CartService } from '../core/services/cart.service';
   imports: [RouterOutlet, DsNavbar, DsFooter],
   template: `
     <ds-navbar
-      brandName="Mi Tienda"
+      brandName="VACONYAPA"
       [links]="navLinks"
       [cartCount]="cart.count()"
       [authLabel]="auth.currentUser()?.name ?? 'Ingresar'"
@@ -22,8 +22,8 @@ import { CartService } from '../core/services/cart.service';
     <router-outlet />
 
     <ds-footer
-      brandName="Mi Tienda"
-      tagline="Tu tienda online de confianza para productos de calidad."
+      brandName="VACONYAPA"
+      tagline="Bueno, barato y con yapa. Envíos a todo Rosario."
       [columns]="footerColumns"
       [socials]="[
         { label: 'Instagram', href: '#' },

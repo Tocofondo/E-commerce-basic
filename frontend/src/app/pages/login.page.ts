@@ -13,7 +13,7 @@ import { AuthService } from '../core/services/auth.service';
       <div class="w-full max-w-sm bg-surface border border-border rounded-xl p-6 sm:p-8 flex flex-col gap-5">
         <div class="text-center">
           <h1 class="text-xl font-bold text-neutral-800">Ingresar</h1>
-          <p class="text-sm text-neutral-500 mt-1">Accedé a tu cuenta de Mi Tienda</p>
+          <p class="text-sm text-neutral-500 mt-1">Accedé a tu cuenta de VACONYAPA</p>
         </div>
 
         <form class="flex flex-col gap-4" (ngSubmit)="onSubmit()">

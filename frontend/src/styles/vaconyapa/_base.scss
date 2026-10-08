@@ -1,0 +1,64 @@
+// Estilos base de toda la app.
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--vy-negro);
+  color: var(--vy-blanco);
+  font-family: var(--vy-font-sans);
+  font-size: var(--vy-fs-md);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1, h2, h3, h4 {
+  margin: 0;
+  line-height: 1.1;
+  text-wrap: balance;
+}
+
+p {
+  margin: 0;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: var(--vy-verde);
+  text-underline-offset: 3px;
+
+  &:hover {
+    color: var(--vy-verde-hover);
+  }
+}
+
+:focus-visible {
+  outline: 3px solid var(--vy-verde);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: var(--vy-verde);
+  color: var(--vy-negro);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

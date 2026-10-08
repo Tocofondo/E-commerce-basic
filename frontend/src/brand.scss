@@ -1,0 +1,40 @@
+// Estilos de marca VACONYAPA (kit en src/styles/vaconyapa).
+// Tailwind v4 no pasa por Sass, por eso esto es una entrada aparte de styles.css
+// (ver "styles" en angular.json).
+//
+// No se carga `_base.scss` global: pinta todo el sitio de negro con texto blanco y
+// la tienda actual es clara. Lo mismo queda disponible por sección con `.vy-oscuro`.
+@use 'styles/vaconyapa/tokens';
+@use 'styles/vaconyapa/fonts';
+@use 'styles/vaconyapa/components';
+
+.vy-oscuro {
+  color-scheme: dark;
+  background: var(--vy-negro);
+  color: var(--vy-blanco);
+  font-family: var(--vy-font-sans);
+  font-size: var(--vy-fs-md);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+
+  // :where() deja la especificidad igual a la del `a` de _base.scss, así no le
+  // gana a .vy-btn (que es un <a> con texto negro).
+  :where(&) a {
+    color: var(--vy-verde);
+    text-underline-offset: 3px;
+
+    &:hover {
+      color: var(--vy-verde-hover);
+    }
+  }
+
+  :focus-visible {
+    outline: 3px solid var(--vy-verde);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--vy-verde);
+    color: var(--vy-negro);
+  }
+}
