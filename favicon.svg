@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-label="VACONYAPA">
+<title>VACONYAPA</title>
+<rect x="0" y="0" width="128" height="128" rx="28" fill="#101210"/>
+<circle cx="64" cy="64" r="50.7" fill="none" stroke="#2EE87C" stroke-width="7.8"/>
+<line x1="44.5" y1="64" x2="83.5" y2="64" stroke="#2EE87C" stroke-width="9.75" stroke-linecap="round"/>
+<line x1="64" y1="44.5" x2="64" y2="83.5" stroke="#2EE87C" stroke-width="9.75" stroke-linecap="round"/>
+</svg>
