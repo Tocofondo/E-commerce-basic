@@ -54,7 +54,7 @@ def create(
     return product
 
 
-@router.put("/{product_id}", response_model=ProductRead)
+@router.patch("/{product_id}", response_model=ProductRead)
 def update(
     product_id: int,
     product_in: ProductUpdate,

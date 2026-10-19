@@ -15,6 +15,9 @@ class User(Base):
     __tablename__ = "users"
     __table_args__ = (
         CheckConstraint("role IN ('customer', 'admin')", name="ck_users_role"),
+        # Los emails se guardan normalizados (ver auth/schemas.normalize_email):
+        # así el índice único de `email` ya es case-insensitive.
+        CheckConstraint("email = lower(email)", name="ck_users_email_lowercase"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(

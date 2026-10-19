@@ -68,15 +68,15 @@ export class LoginPage {
   async onSubmit(): Promise<void> {
     this.error.set('');
     this.loading.set(true);
-    let ok: boolean;
+    let errorMessage: string | null;
     try {
-      ok = await this.auth.login(this.email, this.password);
+      errorMessage = await this.auth.login(this.email, this.password);
     } finally {
       this.loading.set(false);
     }
 
-    if (!ok) {
-      this.error.set('Email o contraseña incorrectos.');
+    if (errorMessage) {
+      this.error.set(errorMessage);
       return;
     }
 

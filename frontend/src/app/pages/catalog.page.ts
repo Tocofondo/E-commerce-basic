@@ -1,14 +1,14 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { DsCardProduct, DsInput } from '../design-system/index';
+import { DsButton, DsCardProduct, DsInput, DsSpinner } from '../design-system/index';
 import { ProductService } from '../core/services/product.service';
 import { CartService } from '../core/services/cart.service';
 
 @Component({
   selector: 'app-catalog-page',
   standalone: true,
-  imports: [FormsModule, RouterLink, DsCardProduct, DsInput],
+  imports: [FormsModule, RouterLink, DsButton, DsCardProduct, DsInput, DsSpinner],
   template: `
     <main class="max-w-7xl mx-auto px-4 sm:px-6 py-10 flex flex-col gap-6">
       <h1 class="text-2xl font-bold text-neutral-800">Productos</h1>
@@ -39,7 +39,16 @@ import { CartService } from '../core/services/cart.service';
         </div>
       </div>
 
-      @if (filtered().length === 0) {
+      @if (productsSrv.error() && !productsSrv.loaded()) {
+        <div class="py-10 flex flex-col items-center gap-4 text-center">
+          <p class="text-neutral-500 text-sm">{{ productsSrv.error() }}</p>
+          <ds-button variant="primary" [loading]="productsSrv.loading()" (clicked)="productsSrv.refresh()">
+            Reintentar
+          </ds-button>
+        </div>
+      } @else if (!productsSrv.loaded()) {
+        <div class="py-16 flex justify-center"><ds-spinner size="lg" /></div>
+      } @else if (filtered().length === 0) {
         <p class="text-neutral-500 text-sm py-10 text-center">No se encontraron productos.</p>
       } @else {
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -57,7 +66,7 @@ import { CartService } from '../core/services/cart.service';
   `,
 })
 export class CatalogPage {
-  private productsSrv = inject(ProductService);
+  productsSrv = inject(ProductService);
   private cart = inject(CartService);
   router = inject(Router);
 

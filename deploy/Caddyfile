@@ -1,0 +1,40 @@
+# Caddy: sirve el frontend compilado y manda la API al backend, todo desde el
+# mismo dominio (por eso el build de producción usa `/api/v1` relativo).
+#
+# SITE_ADDRESS sale de deploy/.env:
+#   - con dominio (ej. mitienda.com.ar): Caddy saca y renueva el certificado
+#     HTTPS de Let's Encrypt solo. El DNS tiene que apuntar a este servidor.
+#   - sin dominio todavía: ":80" (HTTP plano por IP, solo para probar).
+
+{$SITE_ADDRESS::80} {
+	encode zstd gzip
+
+	# API, imágenes de producto subidas por el admin y healthcheck.
+	@backend path /api/* /static/* /health
+	handle @backend {
+		reverse_proxy backend:8000
+	}
+
+	# Angular (SPA): cualquier ruta que no sea un archivo cae en index.html
+	# para que el router del frontend la resuelva (ej. /productos/3 con F5).
+	handle {
+		# JS/CSS llevan hash en el nombre (outputHashing: all): se pueden
+		# cachear para siempre. Todo lo demás (index.html y las rutas del SPA
+		# que caen en él) se revalida, así un deploy nuevo se ve al recargar.
+		@hashed path *.js *.css
+		header @hashed Cache-Control "public, max-age=31536000, immutable"
+		@notHashed not path *.js *.css
+		header @notHashed Cache-Control "no-cache"
+
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options DENY
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}

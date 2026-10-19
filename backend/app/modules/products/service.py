@@ -26,6 +26,20 @@ ALLOWED_IMAGE_TYPES: dict[str, str] = {
     "image/gif": ".gif",
 }
 MAX_IMAGE_BYTES = settings.MAX_IMAGE_SIZE_MB * 1024 * 1024
+
+
+def _looks_like(content: bytes, content_type: str) -> bool:
+    """Chequea la firma (magic bytes) del archivo contra el content-type que
+    declaró el cliente: el header lo elige quien sube, no prueba nada."""
+    if content_type == "image/jpeg":
+        return content.startswith(b"\xff\xd8\xff")
+    if content_type == "image/png":
+        return content.startswith(b"\x89PNG\r\n\x1a\n")
+    if content_type == "image/gif":
+        return content.startswith((b"GIF87a", b"GIF89a"))
+    if content_type == "image/webp":
+        return content[:4] == b"RIFF" and content[8:12] == b"WEBP"
+    return False
 # Límite a nivel aplicación (no hay CHECK/trigger en la DB): se valida acá
 # antes de escribir nada a disco.
 MAX_IMAGES_PER_PRODUCT = 4
@@ -53,7 +67,7 @@ def get_product(db: Session, product_id: int) -> Product | None:
     return db.get(Product, product_id)
 
 
-def _apply(product: Product, data: ProductCreate | ProductUpdate) -> None:
+def _apply(product: Product, data: ProductCreate) -> None:
     product.name = data.name
     product.description = data.description
     product.category = data.category
@@ -76,10 +90,20 @@ def create_product(db: Session, data: ProductCreate) -> Product:
 
 
 def update_product(db: Session, product_id: int, data: ProductUpdate) -> Product:
+    """Actualización parcial: solo los campos presentes en el body. Antes era
+    un reemplazo completo y el form del admin (que no manda badge/rating/
+    reviewCount) los borraba al editar cualquier otra cosa."""
     product = get_product(db, product_id)
     if product is None:
         raise ProductNotFoundError(product_id)
-    _apply(product, data)
+
+    changes = data.model_dump(exclude_unset=True, exclude={"badge"})
+    for field, value in changes.items():
+        setattr(product, field, value)
+    if "badge" in data.model_fields_set:
+        product.badge_label = data.badge.label if data.badge else None
+        product.badge_variant = data.badge.variant if data.badge else None
+
     db.commit()
     db.refresh(product)
     return product
@@ -114,6 +138,10 @@ def _validate_image(file: UploadFile) -> tuple[bytes, str]:
         raise InvalidImageError(
             f"El archivo '{file.filename}' supera el tamaño máximo permitido "
             f"({settings.MAX_IMAGE_SIZE_MB}MB)."
+        )
+    if not _looks_like(content, file.content_type or ""):
+        raise InvalidImageError(
+            f"El archivo '{file.filename}' no es una imagen {file.content_type} válida."
         )
     return content, ext
 

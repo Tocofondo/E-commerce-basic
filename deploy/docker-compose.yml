@@ -1,0 +1,78 @@
+# Stack de producción para un único servidor (AWS Lightsail, Hetzner,
+# Hostinger, DonWeb... cualquier VPS con Docker). Ver DEPLOY.md.
+#
+#   cd deploy
+#   cp .env.example .env   # y completar
+#   docker compose up -d --build
+#
+# Solo `web` (Caddy) publica puertos: Postgres y el backend quedan en la red
+# interna de Docker, inaccesibles desde afuera.
+
+name: ecommerce
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ../backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Fijos para producción (pisan lo que diga .env).
+      ENVIRONMENT: production
+      DEBUG: 'false'
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: '5432'
+      # Todo se sirve desde el mismo dominio (Caddy), así que las tres URLs
+      # salen de PUBLIC_URL.
+      FRONTEND_URL: ${PUBLIC_URL}
+      BACKEND_PUBLIC_URL: ${PUBLIC_URL}
+      CORS_ORIGINS: '["${PUBLIC_URL}"]'
+      # El backend solo es accesible a través de Caddy (red interna), así que
+      # se puede confiar en su X-Forwarded-For: uvicorn lo usa como IP del
+      # cliente, que es lo que mira el límite de intentos del login.
+      FORWARDED_ALLOW_IPS: '*'
+    volumes:
+      # Imágenes de producto subidas por el admin: en un volumen para que
+      # sobrevivan a rebuilds/reinicios del contenedor.
+      - static_data:/app/static
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build: ../frontend
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS}
+    ports:
+      - '80:80'
+      - '443:443'
+      - '443:443/udp'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # Certificados HTTPS: si se pierden, Caddy los vuelve a pedir, pero
+      # Let's Encrypt limita cuántos se pueden emitir por semana.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  static_data:
+  caddy_data:
+  caddy_config:

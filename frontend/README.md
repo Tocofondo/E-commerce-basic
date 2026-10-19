@@ -26,9 +26,11 @@ npm install
 npm start
 ```
 
-Abrir `http://localhost:4200`. La URL de la API está hardcodeada en
-`src/app/core/config/api.config.ts` (`http://localhost:8000/api/v1`); si el backend corre en
-otro host/puerto, ajustar ahí.
+Abrir `http://localhost:4200`. La URL de la API sale de `src/environments/`:
+`npm start` usa `environment.development.ts` (`http://localhost:8000/api/v1`; si el backend
+corre en otro host/puerto, ajustar ahí) y `npm run build` usa `environment.ts` (`/api/v1`
+relativo, porque en producción Caddy sirve frontend y API desde el mismo dominio — ver
+[`../DEPLOY.md`](../DEPLOY.md)).
 
 > Requiere Node **v22.22.3 / v24.15.0 / v26.0.0** o superior (mínimo exigido por Angular CLI 22).
 > Si tenés una versión anterior instalada, usá `nvm` para levantar una compatible:

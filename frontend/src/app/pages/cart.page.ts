@@ -27,12 +27,22 @@ import { CartService } from '../core/services/cart.service';
               <div class="flex-1 flex flex-col gap-1">
                 <span class="text-sm font-medium text-neutral-800">{{ item.product.name }}</span>
                 <ds-price [current]="item.product.price" size="sm" />
+                @if (item.qty > item.product.stock) {
+                  <span class="text-xs text-error">
+                    {{ item.product.stock === 0 ? 'Sin stock: eliminalo para continuar.' : 'Solo quedan ' + item.product.stock + ' unidades.' }}
+                  </span>
+                }
               </div>
 
               <div class="flex items-center border border-border rounded-lg">
                 <button (click)="cart.setQty(item.product.id, item.qty - 1)" class="px-2.5 py-1.5 text-neutral-600 hover:bg-neutral-100" aria-label="Restar">-</button>
                 <span class="px-3 text-sm font-medium">{{ item.qty }}</span>
-                <button (click)="cart.setQty(item.product.id, item.qty + 1)" class="px-2.5 py-1.5 text-neutral-600 hover:bg-neutral-100" aria-label="Sumar">+</button>
+                <button
+                  (click)="cart.setQty(item.product.id, item.qty + 1)"
+                  [disabled]="item.qty >= item.product.stock"
+                  class="px-2.5 py-1.5 text-neutral-600 hover:bg-neutral-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                  aria-label="Sumar"
+                >+</button>
               </div>
 
               <button (click)="cart.remove(item.product.id)" class="text-sm text-error hover:underline">
@@ -47,8 +57,16 @@ import { CartService } from '../core/services/cart.service';
           <ds-price [current]="cart.total()" size="lg" />
         </div>
 
-        <div class="flex justify-end">
-          <ds-button variant="primary" size="lg" (clicked)="router.navigate(['/checkout'])">
+        <div class="flex flex-col items-end gap-2">
+          @if (cart.overStock().length) {
+            <p class="text-sm text-error">Ajustá las cantidades marcadas: el stock cambió desde que las agregaste.</p>
+          }
+          <ds-button
+            variant="primary"
+            size="lg"
+            [disabled]="cart.overStock().length > 0"
+            (clicked)="router.navigate(['/checkout'])"
+          >
             Ir a pagar
           </ds-button>
         </div>

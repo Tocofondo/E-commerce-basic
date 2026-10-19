@@ -7,6 +7,8 @@ import { CartService } from '../core/services/cart.service';
 import { OrderService } from '../core/services/order.service';
 import { AuthService } from '../core/services/auth.service';
 import { WhatsappService } from '../core/services/whatsapp.service';
+import { ProductService } from '../core/services/product.service';
+import { apiErrorMessage } from '../core/http-error';
 import { Order, ShippingInfo } from '../core/models/order.model';
 
 @Component({
@@ -49,7 +51,20 @@ import { Order, ShippingInfo } from '../core/models/order.model';
               <p class="text-sm text-error">{{ error() }}</p>
             }
 
-            <ds-button variant="primary" type="submit" [fullWidth]="true" [loading]="loading()">
+            @if (cart.overStock().length) {
+              <p class="text-sm text-error">
+                Algunos productos ya no tienen stock suficiente.
+                <a routerLink="/carrito" class="underline">Ajustá el carrito</a> para continuar.
+              </p>
+            }
+
+            <ds-button
+              variant="primary"
+              type="submit"
+              [fullWidth]="true"
+              [loading]="loading()"
+              [disabled]="cart.overStock().length > 0"
+            >
               Confirmar pedido
             </ds-button>
           </form>
@@ -76,9 +91,19 @@ export class CheckoutPage {
   cart = inject(CartService);
   private orders = inject(OrderService);
   private auth = inject(AuthService);
+  private products = inject(ProductService);
   private whatsapp = inject(WhatsappService);
 
-  shipping: ShippingInfo = { fullName: '', phone: '', address: '', city: '', postalCode: '' };
+  // Nombre y teléfono precargados desde la cuenta (se pueden cambiar si el
+  // envío es para otra persona). `name` cae en el email si no cargó nombre.
+  private user = this.auth.currentUser();
+  shipping: ShippingInfo = {
+    fullName: this.user && this.user.name !== this.user.email ? this.user.name : '',
+    phone: this.user?.phone ?? '',
+    address: '',
+    city: '',
+    postalCode: '',
+  };
   placedOrder = signal<Order | null>(null);
   error = signal('');
   loading = signal(false);
@@ -92,9 +117,13 @@ export class CheckoutPage {
       const order = await this.orders.place(this.cart.items(), this.shipping);
       this.cart.clear();
       this.placedOrder.set(order);
-    } catch {
-      // El backend responde 400 si algún producto quedó sin stock suficiente.
-      this.error.set('No se pudo confirmar el pedido. Verificá el stock disponible e intentá de nuevo.');
+      // El backend descontó stock: refrescar para que el catálogo lo muestre.
+      this.products.refresh();
+    } catch (err) {
+      // Ej. 400 "No hay stock suficiente de ..." (alguien compró antes):
+      // refrescar el catálogo para que el carrito marque qué ajustar.
+      this.error.set(apiErrorMessage(err, 'No se pudo confirmar el pedido. Probá de nuevo.'));
+      this.products.refresh();
     } finally {
       this.loading.set(false);
     }

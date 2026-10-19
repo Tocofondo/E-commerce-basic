@@ -61,7 +61,7 @@ los comandos sueltos (`alembic ...`, `uvicorn ...`) igual que antes.
 - **pgAdmin** → http://localhost:5050
 
 El frontend (`../frontend`) ya apunta a `http://localhost:8000/api/v1` para el login
-(`src/app/core/services/auth.service.ts` + `core/config/api.config.ts`); con CORS habilitado
+(`src/environments/environment.development.ts`); con CORS habilitado
 para `http://localhost:4200` (ver `CORS_ORIGINS` en `.env`).
 
 ## Endpoints de auth (`/api/v1/auth`)

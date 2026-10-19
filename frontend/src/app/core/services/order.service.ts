@@ -5,6 +5,18 @@ import { API_BASE_URL } from '../config/api.config';
 import { PRODUCT_IMAGE_PLACEHOLDER } from '../config/app.config.constants';
 import { CartItem } from '../models/cart.model';
 import { Order, OrderStatus, ShippingInfo } from '../models/order.model';
+import { apiErrorMessage } from '../http-error';
+
+// Transiciones de estado que acepta el backend (mismo mapa que
+// ALLOWED_TRANSITIONS en backend/app/modules/orders/service.py).
+// `cancelado` y `entregado` son finales; cancelar repone el stock.
+export const ALLOWED_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  pendiente: ['pagado', 'cancelado'],
+  pagado: ['enviado', 'cancelado'],
+  enviado: ['entregado', 'cancelado'],
+  entregado: [],
+  cancelado: [],
+};
 
 // Forma que devuelve el backend para cada item de pedido: un snapshot del
 // producto al momento de la compra, no el `Product` completo del catálogo
@@ -60,6 +72,9 @@ export class OrderService {
   private http = inject(HttpClient);
 
   orders = signal<Order[]>([]);
+  loading = signal(false);
+  /** Mensaje del último error al cargar pedidos ('' si salió bien). */
+  error = signal('');
 
   /** Crea el pedido para el usuario autenticado (el backend lo infiere del token). */
   async place(items: CartItem[], shipping: ShippingInfo): Promise<Order> {
@@ -76,15 +91,31 @@ export class OrderService {
   }
 
   /** Pedidos del usuario autenticado. */
-  async loadMine(): Promise<void> {
-    const res = await firstValueFrom(this.http.get<OrderResponse[]>(`${API_BASE_URL}/orders/me`));
-    this.orders.set(res.map(toOrder));
+  loadMine(): Promise<void> {
+    return this.load(`${API_BASE_URL}/orders/me`);
   }
 
   /** Todos los pedidos (solo admin). */
-  async loadAll(): Promise<void> {
-    const res = await firstValueFrom(this.http.get<OrderResponse[]>(`${API_BASE_URL}/orders`));
-    this.orders.set(res.map(toOrder));
+  loadAll(): Promise<void> {
+    return this.load(`${API_BASE_URL}/orders`);
+  }
+
+  /** Nunca rechaza: si falla deja el mensaje en `error`. Vacía la lista
+   * antes de pedir, porque `orders` se comparte entre "mis pedidos" y el
+   * admin: sin esto, un admin que pasa de /admin/pedidos a /mis-pedidos
+   * veía por un momento los pedidos de todos. */
+  private async load(url: string): Promise<void> {
+    this.orders.set([]);
+    this.loading.set(true);
+    this.error.set('');
+    try {
+      const res = await firstValueFrom(this.http.get<OrderResponse[]>(url));
+      this.orders.set(res.map(toOrder));
+    } catch (err) {
+      this.error.set(apiErrorMessage(err, 'No se pudieron cargar los pedidos.'));
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   async updateStatus(id: number, status: OrderStatus): Promise<void> {

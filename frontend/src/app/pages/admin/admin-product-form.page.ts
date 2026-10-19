@@ -4,6 +4,8 @@ import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DsButton, DsInput } from '../../design-system/index';
 import { ProductService } from '../../core/services/product.service';
 import { ProductImage, ProductInput } from '../../core/models/product.model';
+import { apiErrorMessage } from '../../core/http-error';
+import { BadgeVariant } from '../../design-system/index';
 
 // Debe coincidir con lo que valida el backend (ALLOWED_IMAGE_TYPES /
 // MAX_IMAGE_SIZE_MB / MAX_IMAGES_PER_PRODUCT en
@@ -12,6 +14,14 @@ import { ProductImage, ProductInput } from '../../core/models/product.model';
 const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_IMAGES_PER_PRODUCT = 4;
+
+// Etiquetas que se pueden asignar a mano ('out-of-stock' no: eso lo decide
+// el stock). Mismos valores que BadgeVariant en el backend.
+const BADGE_OPTIONS: { variant: BadgeVariant; label: string }[] = [
+  { variant: 'sale', label: 'Oferta' },
+  { variant: 'new', label: 'Nuevo' },
+  { variant: 'featured', label: 'Destacado' },
+];
 
 @Component({
   selector: 'app-admin-product-form-page',
@@ -93,6 +103,26 @@ const MAX_IMAGES_PER_PRODUCT = 4;
 
         <ds-input label="Stock" type="number" [required]="true" [(ngModel)]="stockStr" name="stock" />
 
+        <div class="grid grid-cols-2 gap-4">
+          <div class="flex flex-col gap-1">
+            <label class="text-sm font-medium text-neutral-700">Etiqueta</label>
+            <select
+              [(ngModel)]="badgeVariant"
+              (ngModelChange)="onBadgeVariantChange($event)"
+              name="badgeVariant"
+              class="w-full rounded-lg border border-border bg-surface text-neutral-800 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-brand-500"
+            >
+              <option value="">Sin etiqueta</option>
+              @for (option of badgeOptions; track option.variant) {
+                <option [value]="option.variant">{{ option.label }}</option>
+              }
+            </select>
+          </div>
+          @if (badgeVariant) {
+            <ds-input label="Texto de la etiqueta" [required]="true" [(ngModel)]="badgeLabel" name="badgeLabel" />
+          }
+        </div>
+
         @if (error()) {
           <p class="text-sm text-error">{{ error() }}</p>
         }
@@ -124,6 +154,12 @@ export class AdminProductFormPage implements OnDestroy {
   priceStr = '0';
   originalPriceStr = '';
   stockStr = '0';
+
+  // Badge del producto (lo que muestra <ds-badge> en la card). Antes no
+  // había forma de editarlo desde acá.
+  badgeOptions = BADGE_OPTIONS;
+  badgeVariant: BadgeVariant | '' = '';
+  badgeLabel = '';
 
   maxImages = MAX_IMAGES_PER_PRODUCT;
   existingImages = signal<ProductImage[]>([]);
@@ -166,7 +202,16 @@ export class AdminProductFormPage implements OnDestroy {
     this.priceStr = String(product.price);
     this.originalPriceStr = product.originalPrice ? String(product.originalPrice) : '';
     this.stockStr = String(product.stock);
+    this.badgeVariant = product.badge?.variant ?? '';
+    this.badgeLabel = product.badge?.label ?? '';
     this.existingImages.set(product.images);
+  }
+
+  /** Al elegir una etiqueta, sugerir su texto por defecto (editable). */
+  onBadgeVariantChange(variant: BadgeVariant | ''): void {
+    const option = BADGE_OPTIONS.find(o => o.variant === variant);
+    const isDefaultLabel = !this.badgeLabel || BADGE_OPTIONS.some(o => o.label === this.badgeLabel);
+    if (option && isDefaultLabel) this.badgeLabel = option.label;
   }
 
   onFilesSelected(event: Event): void {
@@ -225,8 +270,15 @@ export class AdminProductFormPage implements OnDestroy {
 
   async onSubmit(): Promise<void> {
     const price = Number(this.priceStr);
-    const originalPrice = this.originalPriceStr ? Number(this.originalPriceStr) : undefined;
+    // null explícito (no undefined): la edición es parcial y un campo que no
+    // viaja queda como estaba, así que vaciar el input tiene que mandar null.
+    const originalPrice = this.originalPriceStr ? Number(this.originalPriceStr) : null;
     const stock = Number(this.stockStr);
+
+    if (this.badgeVariant && !this.badgeLabel.trim()) {
+      this.error.set('Completá el texto de la etiqueta o elegí "Sin etiqueta".');
+      return;
+    }
 
     const data: ProductInput = {
       name: this.form.name,
@@ -235,25 +287,54 @@ export class AdminProductFormPage implements OnDestroy {
       price,
       originalPrice,
       stock,
+      badge: this.badgeVariant ? { variant: this.badgeVariant, label: this.badgeLabel.trim() } : null,
     };
 
     this.error.set('');
     this.loading.set(true);
     try {
-      const productId =
-        this.isEdit && this.editingId !== null
-          ? Number((await this.productsSrv.update(this.editingId, data)).id)
-          : Number((await this.productsSrv.create(data)).id);
+      let productId: number;
+      try {
+        if (this.editingId !== null) {
+          productId = Number((await this.productsSrv.update(this.editingId, data)).id);
+        } else {
+          productId = Number((await this.productsSrv.create(data)).id);
+          // Desde acá el producto ya existe: si falla la subida de imágenes,
+          // el reintento tiene que editarlo, no crear otro (antes quedaba
+          // duplicado).
+          this.editingId = productId;
+          this.isEdit = true;
+        }
+      } catch (err) {
+        this.error.set(apiErrorMessage(err, 'No se pudo guardar el producto. Revisá los datos.'));
+        return;
+      }
 
       if (this.pendingFiles().length) {
-        await this.productsSrv.uploadImages(productId, this.pendingFiles());
+        try {
+          const uploaded = await this.productsSrv.uploadImages(productId, this.pendingFiles());
+          this.existingImages.update(list => [...list, ...uploaded]);
+          this.clearPendingFiles();
+        } catch (err) {
+          this.error.set(
+            apiErrorMessage(
+              err,
+              'El producto se guardó, pero no se pudieron subir las imágenes. Probá de nuevo.',
+            ),
+          );
+          return;
+        }
       }
 
       this.router.navigate(['/admin/productos']);
-    } catch {
-      this.error.set('No se pudo guardar el producto.');
     } finally {
       this.loading.set(false);
     }
+  }
+
+  private clearPendingFiles(): void {
+    for (const url of this.pendingPreviews()) URL.revokeObjectURL(url);
+    this.pendingFiles.set([]);
+    this.pendingPreviews.set([]);
   }
 }
