@@ -1,18 +1,20 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { DsButton, DsInput } from '../design-system/index';
+import { DsInput } from '../design-system/index';
+import { VyLogoComponent } from '../shared/brand/vy-logo.component';
 import { AuthService } from '../core/services/auth.service';
 
 @Component({
   selector: 'app-register-page',
   standalone: true,
-  imports: [FormsModule, RouterLink, DsButton, DsInput],
+  imports: [FormsModule, RouterLink, DsInput, VyLogoComponent],
   template: `
-    <div class="min-h-screen flex items-center justify-center bg-neutral-50 px-4 py-8">
-      <div class="w-full max-w-sm bg-surface border border-border rounded-xl p-6 sm:p-8 flex flex-col gap-5">
+    <div class="vy-oscuro vy-tienda min-h-screen flex flex-col items-center justify-center gap-6 px-4 py-10">
+      <a routerLink="/" aria-label="VACONYAPA, ir al inicio"><vy-logo alto="36px" /></a>
+      <div class="w-full max-w-sm vy-card p-6 sm:p-8 flex flex-col gap-5">
         <div class="text-center">
-          <h1 class="text-xl font-bold text-neutral-800">Crear cuenta</h1>
+          <h1 class="text-2xl leading-tight"><span class="vy-marker">Creá</span> <span class="vy-heavy">tu cuenta</span></h1>
           <p class="text-sm text-neutral-500 mt-1">Registrate en VACONYAPA</p>
         </div>
 
@@ -62,17 +64,18 @@ import { AuthService } from '../core/services/auth.service';
             <p class="text-sm text-error">{{ error() }}</p>
           }
 
-          <ds-button variant="primary" type="submit" [fullWidth]="true" [loading]="loading()">
+          <button type="submit" class="vy-btn vy-btn--bloque" [disabled]="loading()">
+            @if (loading()) { <span class="vy-btn-cargando"></span> }
             Crear cuenta
-          </ds-button>
+          </button>
         </form>
 
         <p class="text-sm text-center text-neutral-500">
           ¿Ya tenés cuenta?
-          <a routerLink="/login" class="text-brand-600 hover:underline">Ingresá</a>
+          <a routerLink="/login" class="font-bold hover:underline">Ingresá</a>
         </p>
 
-        <a routerLink="/" class="text-sm text-center text-brand-600 hover:underline">Volver a la tienda</a>
+        <a routerLink="/" class="text-sm text-center font-bold hover:underline">Volver a la tienda</a>
       </div>
     </div>
   `,
