@@ -9,17 +9,20 @@
 
 :root {
   /* Brand — color primario de la marca */
-  --brand-50:  #eff6ff;
-  --brand-100: #dbeafe;
-  --brand-200: #bfdbfe;
-  --brand-300: #93c5fd;
-  --brand-400: #60a5fa;
-  --brand-500: #3b82f6;   /* ← color principal */
-  --brand-600: #2563eb;
-  --brand-700: #1d4ed8;
-  --brand-800: #1e40af;
-  --brand-900: #1e3a8a;
-  --brand-950: #172554;
+  /* VACONYAPA: la tienda es de fondo claro, así que el primario es el
+     "verde oscuro" de la marca (#138A3E); el verde yapa neón (#2EE87C) no se
+     lee sobre blanco y queda solo como acento (400). */
+  --brand-50:  #edfcf2;
+  --brand-100: #d3f8df;
+  --brand-200: #aaf0c4;
+  --brand-300: #73e2a0;
+  --brand-400: #2ee87c;   /* verde yapa */
+  --brand-500: #17b85a;
+  --brand-600: #138a3e;   /* ← color principal (verde oscuro) */
+  --brand-700: #0f6e33;
+  --brand-800: #0f572b;
+  --brand-900: #0d4825;
+  --brand-950: #052813;
 
   /* Neutral — grises del sistema */
   --neutral-50:  #f9fafb;

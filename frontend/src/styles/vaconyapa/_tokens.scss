@@ -1,0 +1,62 @@
+// VACONYAPA · tokens de marca
+// Usalos como variables CSS (var(--vy-verde)) en templates y componentes,
+// o como variables SCSS ($vy-verde) dentro de archivos .scss.
+
+// ---------- Color ----------
+$vy-negro: #101210;        // Negro pizarra: fondo de todo (60%)
+$vy-carbon: #1B1E1B;       // Gris carbón: tarjetas y bloques sobre el negro
+$vy-borde: #2C312C;        // Bordes y separadores sobre fondo oscuro
+$vy-verde: #2EE87C;        // Verde yapa: YAPA, precios, íconos, rayitas, botones
+$vy-verde-hover: #5CF09A;  // Verde un punto más claro para hover
+$vy-verde-oscuro: #138A3E; // Solo sobre fondo blanco (el neón no se lee en claro)
+$vy-blanco: #FFFFFF;       // Blanco tiza: letra de marcador y textos
+$vy-texto-suave: #C9D0C9;  // Texto secundario sobre negro
+$vy-texto-tenue: #9AA39A;  // Etiquetas y notas sobre negro
+$vy-error: #FF6B5E;        // Errores de formulario (solo estado, no decorativo)
+
+// ---------- Tipografía ----------
+$vy-font-marker: 'Permanent Marker', 'Comic Sans MS', cursive;
+$vy-font-sans: 'Montserrat', system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+:root {
+  --vy-negro: #{$vy-negro};
+  --vy-carbon: #{$vy-carbon};
+  --vy-borde: #{$vy-borde};
+  --vy-verde: #{$vy-verde};
+  --vy-verde-hover: #{$vy-verde-hover};
+  --vy-verde-oscuro: #{$vy-verde-oscuro};
+  --vy-blanco: #{$vy-blanco};
+  --vy-texto-suave: #{$vy-texto-suave};
+  --vy-texto-tenue: #{$vy-texto-tenue};
+  --vy-error: #{$vy-error};
+
+  --vy-font-marker: #{$vy-font-marker};
+  --vy-font-sans: #{$vy-font-sans};
+
+  // Escala tipográfica (rem, base 16px)
+  --vy-fs-xs: 0.75rem;   // 12 etiquetas
+  --vy-fs-sm: 0.875rem;  // 14 notas
+  --vy-fs-md: 1rem;      // 16 texto
+  --vy-fs-lg: 1.25rem;   // 20 subtítulos
+  --vy-fs-xl: 1.75rem;   // 28 títulos de sección
+  --vy-fs-2xl: 2.5rem;   // 40 títulos grandes
+  --vy-fs-3xl: clamp(2.75rem, 7vw, 5rem); // portada
+
+  // Espaciado
+  --vy-space-1: 0.25rem;
+  --vy-space-2: 0.5rem;
+  --vy-space-3: 0.75rem;
+  --vy-space-4: 1rem;
+  --vy-space-5: 1.5rem;
+  --vy-space-6: 2rem;
+  --vy-space-7: 3rem;
+  --vy-space-8: 4rem;
+
+  // Bordes
+  --vy-radius-sm: 6px;
+  --vy-radius-md: 12px;
+  --vy-radius-lg: 18px;
+  --vy-radius-pill: 999px;
+
+  --vy-ancho-max: 1200px;
+}

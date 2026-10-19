@@ -1,0 +1,215 @@
+// Clases globales de marca. Prefijo vy- para no chocar con otras librerías.
+
+// ---------- Contenedor ----------
+.vy-container {
+  width: 100%;
+  max-width: var(--vy-ancho-max);
+  margin-inline: auto;
+  padding-inline: var(--vy-space-4);
+
+  @media (min-width: 768px) {
+    padding-inline: var(--vy-space-6);
+  }
+}
+
+// ---------- La mezcla de letras ----------
+// .vy-marker: la voz, escrita a mano (blanco).
+// .vy-heavy:  el golpe, Montserrat Black en verde (precios, palabras clave).
+// Regla: en cada título mezclá las dos. Ej: <h2><span class="vy-marker">Tu pedido</span> <span class="vy-heavy">ya salió</span></h2>
+.vy-marker {
+  font-family: var(--vy-font-marker);
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: var(--vy-blanco);
+}
+
+.vy-heavy {
+  font-family: var(--vy-font-sans);
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
+  color: var(--vy-verde);
+}
+
+.vy-label {
+  font-family: var(--vy-font-sans);
+  font-weight: 700;
+  font-size: var(--vy-fs-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--vy-texto-tenue);
+}
+
+.vy-muted {
+  color: var(--vy-texto-suave);
+}
+
+// ---------- Subrayado a marcador ----------
+// <span class="vy-subrayado">Llegó a Rosario</span>
+.vy-subrayado {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 0.35em;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 6%;
+    right: 6%;
+    bottom: 0;
+    height: 0.16em;
+    min-height: 4px;
+    border-radius: var(--vy-radius-pill);
+    background: var(--vy-verde);
+    transform: rotate(-2deg);
+  }
+}
+
+// ---------- Precio ----------
+.vy-precio {
+  font-family: var(--vy-font-sans);
+  font-weight: 900;
+  font-size: var(--vy-fs-xl);
+  line-height: 1;
+  color: var(--vy-verde);
+  font-variant-numeric: tabular-nums;
+}
+
+.vy-precio-anterior {
+  font-weight: 600;
+  font-size: var(--vy-fs-sm);
+  color: var(--vy-texto-tenue);
+  text-decoration: line-through;
+}
+
+// ---------- Botones ----------
+.vy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--vy-space-2);
+  min-height: 48px;
+  padding: 0 var(--vy-space-5);
+  border: 2px solid var(--vy-verde);
+  border-radius: var(--vy-radius-pill);
+  background: var(--vy-verde);
+  color: var(--vy-negro);
+  font-family: var(--vy-font-sans);
+  font-weight: 800;
+  font-size: var(--vy-fs-md);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s, transform 0.1s;
+
+  &:hover {
+    background: var(--vy-verde-hover);
+    border-color: var(--vy-verde-hover);
+    color: var(--vy-negro);
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+
+  &:disabled,
+  &[aria-disabled='true'] {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  // Secundario: contorno verde, fondo transparente.
+  &--secundario {
+    background: transparent;
+    color: var(--vy-verde);
+
+    &:hover {
+      background: rgba(46, 232, 124, 0.12);
+      color: var(--vy-verde);
+    }
+  }
+
+  // Botón de WhatsApp / contacto: blanco con letra de marcador.
+  &--marcador {
+    background: var(--vy-blanco);
+    border-color: var(--vy-blanco);
+    font-family: var(--vy-font-marker);
+    font-weight: 400;
+    letter-spacing: 0.04em;
+
+    &:hover {
+      background: var(--vy-texto-suave);
+      border-color: var(--vy-texto-suave);
+    }
+  }
+}
+
+// ---------- Tarjeta ----------
+.vy-card {
+  background: var(--vy-carbon);
+  border: 1px solid var(--vy-borde);
+  border-radius: var(--vy-radius-lg);
+  overflow: hidden;
+}
+
+// ---------- Chip / etiqueta ----------
+.vy-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vy-space-1);
+  padding: 0.3em 0.8em;
+  border-radius: var(--vy-radius-pill);
+  background: var(--vy-verde);
+  color: var(--vy-negro);
+  font-weight: 800;
+  font-size: var(--vy-fs-xs);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+
+  &--contorno {
+    background: transparent;
+    color: var(--vy-verde);
+    border: 1.5px solid var(--vy-verde);
+  }
+}
+
+// ---------- Formularios ----------
+.vy-input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 var(--vy-space-4);
+  border: 1.5px solid var(--vy-borde);
+  border-radius: var(--vy-radius-md);
+  background: var(--vy-negro);
+  color: var(--vy-blanco);
+  font: inherit;
+
+  &::placeholder {
+    color: var(--vy-texto-tenue);
+  }
+
+  &:focus {
+    border-color: var(--vy-verde);
+    outline: none;
+  }
+
+  &.ng-invalid.ng-touched {
+    border-color: var(--vy-error);
+  }
+}
+
+// ---------- Sección clara (opcional) ----------
+// Para bloques sobre fondo blanco: el verde pasa a verde oscuro.
+.vy-claro {
+  background: var(--vy-blanco);
+  color: var(--vy-negro);
+
+  .vy-marker { color: var(--vy-negro); }
+  .vy-heavy,
+  .vy-precio { color: var(--vy-verde-oscuro); }
+  .vy-subrayado::after { background: var(--vy-verde-oscuro); }
+  .vy-label,
+  .vy-muted { color: #4B524B; }
+}

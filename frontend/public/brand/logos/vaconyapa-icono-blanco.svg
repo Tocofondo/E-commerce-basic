@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-94 -48 188 96" width="188" height="96" role="img" aria-label="VACONYAPA">
+<title>VACONYAPA</title>
+<circle cx="0" cy="0" r="39" fill="none" stroke="#FFFFFF" stroke-width="6"/>
+<line x1="-15" y1="0" x2="15" y2="0" stroke="#FFFFFF" stroke-width="7.5" stroke-linecap="round"/>
+<line x1="0" y1="-15" x2="0" y2="15" stroke="#FFFFFF" stroke-width="7.5" stroke-linecap="round"/>
+<line x1="-74.09" y1="-35.75" x2="-55.91" y2="-25.25" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+<line x1="-85.5" y1="0.5" x2="-64.5" y2="0.5" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+<line x1="-74.09" y1="36.75" x2="-55.91" y2="26.25" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+<line x1="55.91" y1="-25.25" x2="74.09" y2="-35.75" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+<line x1="64.5" y1="0.5" x2="85.5" y2="0.5" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+<line x1="55.91" y1="26.25" x2="74.09" y2="36.75" stroke="#FFFFFF" stroke-width="5" stroke-linecap="round"/>
+</svg>

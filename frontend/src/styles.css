@@ -45,7 +45,7 @@
   --color-border:         var(--border);
 
   /* Tipografía */
-  --font-family-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-family-sans: 'Montserrat', system-ui, -apple-system, sans-serif;
 }
 
 /* 4. Reset base */
