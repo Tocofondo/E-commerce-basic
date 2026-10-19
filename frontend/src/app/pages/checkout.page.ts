@@ -9,19 +9,19 @@ import { WhatsappService } from '../core/services/whatsapp.service';
 import { ProductService } from '../core/services/product.service';
 import { apiErrorMessage } from '../core/http-error';
 import { Order, ShippingInfo } from '../core/models/order.model';
-import { VyYapaComponent } from '../shared/brand/vy-yapa.component';
+import { VyLogoComponent } from '../shared/brand/vy-logo.component';
 import { PesosPipe } from '../shared/store/pesos.pipe';
 
 @Component({
   selector: 'app-checkout-page',
   standalone: true,
-  imports: [FormsModule, RouterLink, DsInput, VyYapaComponent, PesosPipe],
+  imports: [FormsModule, RouterLink, DsInput, VyLogoComponent, PesosPipe],
   template: `
     <main class="vy-container py-10">
       <div class="max-w-4xl mx-auto flex flex-col gap-6">
         @if (placedOrder(); as order) {
           <div class="vy-card p-6 sm:p-10 flex flex-col items-center gap-5 text-center">
-            <vy-yapa [tamano]="72" />
+            <vy-logo variante="sello" alto="72px" />
             <h1 class="vy-titulo">
               <span class="vy-marker">Pedido #{{ order.id }}</span>
               <span class="vy-heavy">confirmado</span>
@@ -37,7 +37,7 @@ import { PesosPipe } from '../shared/store/pesos.pipe';
         } @else if (cart.items().length === 0) {
           <h1 class="vy-titulo"><span class="vy-marker">Finalizar</span> <span class="vy-heavy">pedido</span></h1>
           <div class="text-center py-16 flex flex-col items-center gap-5">
-            <vy-yapa [tamano]="64" />
+            <vy-logo variante="sello" alto="64px" />
             <p class="vy-muted">Tu carrito está vacío.</p>
             <a routerLink="/productos" class="vy-btn">Ver productos</a>
           </div>
@@ -84,7 +84,7 @@ import { PesosPipe } from '../shared/store/pesos.pipe';
                 </div>
               }
               <div class="flex items-center gap-3 text-sm">
-                <vy-yapa [tamano]="28" [rayitas]="false" />
+                <vy-logo class="shrink-0" variante="sello-simple" alto="36px" />
                 <span class="vy-muted">1x Yapa (regalo)</span>
               </div>
               <div class="flex justify-between items-center border-t border-border pt-4 mt-2">

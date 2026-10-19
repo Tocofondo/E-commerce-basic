@@ -5,13 +5,13 @@ import { map } from 'rxjs';
 import { DsSpinner } from '../design-system/index';
 import { ProductService } from '../core/services/product.service';
 import { CartService } from '../core/services/cart.service';
-import { VyYapaComponent } from '../shared/brand/vy-yapa.component';
+import { VyLogoComponent } from '../shared/brand/vy-logo.component';
 import { PesosPipe } from '../shared/store/pesos.pipe';
 
 @Component({
   selector: 'app-product-detail-page',
   standalone: true,
-  imports: [RouterLink, DsSpinner, VyYapaComponent, PesosPipe],
+  imports: [RouterLink, DsSpinner, VyLogoComponent, PesosPipe],
   template: `
     @if (product(); as product) {
       <main class="vy-container py-10">
@@ -77,7 +77,7 @@ import { PesosPipe } from '../shared/store/pesos.pipe';
             }
 
             <div class="vy-card flex items-center gap-4 p-4 mt-4">
-              <vy-yapa [tamano]="40" [rayitas]="false" />
+              <vy-logo class="shrink-0" variante="sello-simple" alto="48px" />
               <p class="text-sm vy-muted">
                 <span class="vy-marker text-base">Va con yapa:</span>
                 en cada pedido te mandamos un regalo.

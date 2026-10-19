@@ -1,13 +1,13 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CartService } from '../core/services/cart.service';
-import { VyYapaComponent } from '../shared/brand/vy-yapa.component';
+import { VyLogoComponent } from '../shared/brand/vy-logo.component';
 import { PesosPipe } from '../shared/store/pesos.pipe';
 
 @Component({
   selector: 'app-cart-page',
   standalone: true,
-  imports: [RouterLink, VyYapaComponent, PesosPipe],
+  imports: [RouterLink, VyLogoComponent, PesosPipe],
   template: `
     <main class="vy-container py-10">
       <div class="max-w-4xl mx-auto flex flex-col gap-6">
@@ -15,7 +15,7 @@ import { PesosPipe } from '../shared/store/pesos.pipe';
 
       @if (cart.items().length === 0) {
         <div class="text-center py-16 flex flex-col items-center gap-5">
-          <vy-yapa [tamano]="64" />
+          <vy-logo variante="sello" alto="64px" />
           <p class="vy-muted">Tu carrito está vacío. Date una vuelta por el catálogo.</p>
           <a routerLink="/productos" class="vy-btn">Ver productos</a>
         </div>
@@ -37,7 +37,7 @@ import { PesosPipe } from '../shared/store/pesos.pipe';
                 }
               </div>
 
-              <div class="flex items-center gap-4 ml-auto">
+              <div class="flex flex-wrap items-center justify-end gap-x-4 gap-y-2 ml-auto">
                 <div class="vy-cantidad">
                   <button type="button" (click)="cart.setQty(item.product.id, item.qty - 1)" aria-label="Restar">-</button>
                   <span>{{ item.qty }}</span>
@@ -59,7 +59,7 @@ import { PesosPipe } from '../shared/store/pesos.pipe';
 
         <div class="vy-card p-5 flex flex-col sm:flex-row sm:items-center gap-5">
           <div class="flex items-center gap-3 flex-1">
-            <vy-yapa [tamano]="36" [rayitas]="false" />
+            <vy-logo class="shrink-0" variante="sello-simple" alto="48px" />
             <span class="vy-muted text-sm">Tu pedido va con yapa: un regalo de nuestra parte.</span>
           </div>
           <div class="flex flex-col items-end gap-1">

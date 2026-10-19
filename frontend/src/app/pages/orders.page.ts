@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { DsSpinner } from '../design-system/index';
 import { OrderService } from '../core/services/order.service';
 import { OrderStatus } from '../core/models/order.model';
-import { VyYapaComponent } from '../shared/brand/vy-yapa.component';
+import { VyLogoComponent } from '../shared/brand/vy-logo.component';
 import { PesosPipe } from '../shared/store/pesos.pipe';
 
 // Estados que van en chip verde lleno; el resto, con contorno.
@@ -13,7 +13,7 @@ const HIGHLIGHTED: OrderStatus[] = ['pagado', 'enviado', 'entregado'];
 @Component({
   selector: 'app-orders-page',
   standalone: true,
-  imports: [DatePipe, RouterLink, DsSpinner, VyYapaComponent, PesosPipe],
+  imports: [DatePipe, RouterLink, DsSpinner, VyLogoComponent, PesosPipe],
   template: `
     <main class="vy-container py-10">
       <div class="max-w-4xl mx-auto flex flex-col gap-6">
@@ -28,7 +28,7 @@ const HIGHLIGHTED: OrderStatus[] = ['pagado', 'enviado', 'entregado'];
           </div>
         } @else if (orders().length === 0) {
           <div class="text-center py-16 flex flex-col items-center gap-5">
-            <vy-yapa [tamano]="64" />
+            <vy-logo variante="sello" alto="64px" />
             <p class="vy-muted">Todavía no hiciste ningún pedido.</p>
             <a routerLink="/productos" class="vy-btn">Ver productos</a>
           </div>

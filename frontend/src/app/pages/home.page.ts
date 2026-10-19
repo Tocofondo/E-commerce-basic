@@ -4,16 +4,16 @@ import { DsSpinner } from '../design-system/index';
 import { ProductService } from '../core/services/product.service';
 import { CartService } from '../core/services/cart.service';
 import { Product } from '../core/models/product.model';
-import { VyYapaComponent } from '../shared/brand/vy-yapa.component';
+import { VyLogoComponent } from '../shared/brand/vy-logo.component';
 import { StoreProductCard } from '../shared/store/store-product-card';
 
 @Component({
   selector: 'app-home-page',
   standalone: true,
-  imports: [RouterLink, DsSpinner, VyYapaComponent, StoreProductCard],
+  imports: [RouterLink, DsSpinner, VyLogoComponent, StoreProductCard],
   template: `
     <section class="portada vy-container">
-      <vy-yapa [tamano]="72" />
+      <vy-logo variante="sello" alto="96px" />
       <h1 class="titulo">
         <span class="vy-marker">Bueno, barato</span><br />
         <span class="vy-heavy">y con yapa</span>
