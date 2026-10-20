@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
 
 from app.core.money import Money
+from app.core.phone import ArPhone
 from app.core.urls import public_url
 
 # Mismos valores que `OrderStatus` en el frontend.
@@ -22,7 +23,7 @@ class ShippingInfo(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     full_name: str = Field(min_length=1, max_length=255)
-    phone: str = Field(min_length=1, max_length=50)
+    phone: ArPhone
     address: str = Field(min_length=1, max_length=255)
     city: str = Field(min_length=1, max_length=100)
     postal_code: str = Field(min_length=1, max_length=20)
@@ -68,6 +69,8 @@ class OrderRead(BaseModel):
 
     id: int
     user_id: uuid.UUID
+    # Para que el admin pueda escribirle al cliente (ver Order.customer_email).
+    customer_email: str | None = None
     status: OrderStatus
     total: Money
     created_at: datetime

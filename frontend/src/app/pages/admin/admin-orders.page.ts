@@ -44,8 +44,18 @@ import { Order, OrderStatus } from '../../core/models/order.model';
             </thead>
             <tbody>
               @for (order of orders.orders(); track order.id) {
-                <tr class="border-t border-border">
-                  <td class="px-4 py-3 text-neutral-800 font-medium">#{{ order.id }}</td>
+                <tr class="border-t border-border" [class.bg-neutral-50]="expandedId() === order.id">
+                  <td class="px-4 py-3 text-neutral-800 font-medium">
+                    <button
+                      type="button"
+                      class="inline-flex items-center gap-1.5 hover:text-brand-600 cursor-pointer"
+                      [attr.aria-expanded]="expandedId() === order.id"
+                      (click)="toggle(order.id)"
+                    >
+                      <span class="text-xs text-neutral-400">{{ expandedId() === order.id ? '▾' : '▸' }}</span>
+                      #{{ order.id }}
+                    </button>
+                  </td>
                   <td class="px-4 py-3 text-neutral-600">{{ order.createdAt | date: 'short' }}</td>
                   <td class="px-4 py-3 text-neutral-600">{{ order.shipping.fullName }}</td>
                   <td class="px-4 py-3 text-neutral-600">{{ order.shipping.phone }}</td>
@@ -65,11 +75,51 @@ import { Order, OrderStatus } from '../../core/models/order.model';
                     </select>
                   </td>
                   <td class="px-4 py-3 whitespace-nowrap">
-                    <a [href]="customerWhatsappLink(order)" target="_blank" rel="noopener" class="text-sm text-success hover:underline">
-                      Contactar cliente
-                    </a>
+                    @if (customerWhatsappLink(order); as link) {
+                      <a [href]="link" target="_blank" rel="noopener" class="text-sm text-success hover:underline">
+                        Contactar cliente
+                      </a>
+                    } @else {
+                      <span class="text-xs text-neutral-400" title="El teléfono cargado no es un celular válido">Teléfono inválido</span>
+                    }
                   </td>
                 </tr>
+                @if (expandedId() === order.id) {
+                  <tr class="bg-neutral-50">
+                    <td colspan="7" class="px-4 pb-5 pt-1">
+                      <div class="grid md:grid-cols-[2fr_1fr] gap-6">
+                        <div>
+                          <p class="text-xs font-medium text-neutral-500 uppercase mb-2">Productos</p>
+                          <ul class="flex flex-col gap-2">
+                            @for (item of order.items; track $index) {
+                              <li class="flex items-center gap-3">
+                                <img [src]="item.product.image" [alt]="item.product.name" class="w-10 h-10 rounded-lg object-cover" />
+                                <span class="flex-1 text-neutral-800">{{ item.qty }}x {{ item.product.name }}</span>
+                                <span class="text-neutral-500">{{ item.product.price | number: '1.2-2' }} c/u</span>
+                                <span class="text-neutral-800 font-medium w-24 text-right">{{ item.product.price * item.qty | number: '1.2-2' }}</span>
+                              </li>
+                            }
+                          </ul>
+                        </div>
+                        <div class="flex flex-col gap-3">
+                          <div>
+                            <p class="text-xs font-medium text-neutral-500 uppercase mb-1">Envío</p>
+                            <p class="text-neutral-800">{{ order.shipping.fullName }}</p>
+                            <p class="text-neutral-600">{{ order.shipping.address }}</p>
+                            <p class="text-neutral-600">{{ order.shipping.city }} (CP {{ order.shipping.postalCode }})</p>
+                          </div>
+                          <div>
+                            <p class="text-xs font-medium text-neutral-500 uppercase mb-1">Contacto</p>
+                            <p class="text-neutral-600">{{ order.shipping.phone }}</p>
+                            @if (order.customerEmail) {
+                              <a [href]="'mailto:' + order.customerEmail" class="text-brand-600 hover:underline break-all">{{ order.customerEmail }}</a>
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                }
               }
             </tbody>
           </table>
@@ -85,9 +135,15 @@ export class AdminOrdersPage {
 
   statusError = signal('');
   updatingId = signal<number | null>(null);
+  /** Pedido con el detalle (productos, dirección, email) desplegado. */
+  expandedId = signal<number | null>(null);
 
   constructor() {
     this.orders.loadAll();
+  }
+
+  toggle(id: number): void {
+    this.expandedId.update(current => (current === id ? null : id));
   }
 
   nextStatuses(order: Order): OrderStatus[] {
@@ -121,7 +177,7 @@ export class AdminOrdersPage {
     }
   }
 
-  customerWhatsappLink(order: Order): string {
+  customerWhatsappLink(order: Order): string | null {
     return this.whatsapp.buildCustomerLink(order);
   }
 }

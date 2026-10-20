@@ -82,7 +82,8 @@ Completar como mínimo:
 | `PUBLIC_URL` | `https://mitienda.com.ar` (o `http://<IP>` sin dominio) |
 | `POSTGRES_PASSWORD` | `openssl rand -base64 32 \| tr -d '/+='` |
 | `SECRET_KEY` | `openssl rand -base64 48 \| tr -d '/+='` — **obligatorio**, la API no arranca con el default |
-| `SMTP_*` | Para que llegue el mail de "olvidé mi contraseña". Vacío = el link solo sale en los logs |
+| `SMTP_*` | Para que lleguen los mails (reset de contraseña, confirmación de pedido). Vacío = solo salen en los logs |
+| `ORDER_NOTIFY_EMAIL` | Tu casilla: te llega un aviso por cada pedido nuevo (requiere `SMTP_*`) |
 
 ## 5. Levantar
 

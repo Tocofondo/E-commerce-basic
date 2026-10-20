@@ -1,4 +1,4 @@
-"""Envío de emails transaccionales (por ahora, solo el reset de contraseña).
+"""Envío de emails transaccionales: reset de contraseña y avisos de pedidos.
 
 Sin dependencias externas: usa `smtplib`/`email` de la stdlib. Si no hay un
 SMTP configurado (`settings.SMTP_HOST` vacío, el default fuera de producción),
@@ -10,7 +10,13 @@ import logging
 import smtplib
 from email.message import EmailMessage
 
+from typing import TYPE_CHECKING
+
 from app.core.config import settings
+from app.core.formatting import format_pesos
+
+if TYPE_CHECKING:
+    from app.modules.orders.models import Order
 
 logger = logging.getLogger(__name__)
 
@@ -43,10 +49,63 @@ def _send(to_email: str, subject: str, body: str) -> None:
 def send_password_reset_email(to_email: str, token: str) -> None:
     reset_link = f"{settings.FRONTEND_URL}/reset-password?token={token}"
     body = (
-        "Recibimos un pedido para restablecer tu contraseña en Mi Tienda.\n\n"
+        f"Recibimos un pedido para restablecer tu contraseña en {settings.STORE_NAME}.\n\n"
         f"Hacé click en este link para elegir una nueva contraseña (válido por "
         "30 minutos):\n"
         f"{reset_link}\n\n"
         "Si no fuiste vos, ignorá este email."
     )
-    _send(to_email, "Restablecer tu contraseña - Mi Tienda", body)
+    _send(to_email, f"Restablecer tu contraseña - {settings.STORE_NAME}", body)
+
+
+def _order_summary(order: "Order") -> str:
+    items = "\n".join(
+        f"- {item.qty}x {item.product_name} ({format_pesos(item.unit_price)} c/u)"
+        for item in order.items
+    )
+    return (
+        f"{items}\n"
+        f"Total: {format_pesos(order.total)}\n\n"
+        f"Envío a: {order.shipping_full_name}\n"
+        f"{order.shipping_address}, {order.shipping_city} (CP {order.shipping_postal_code})\n"
+        f"Teléfono: {order.shipping_phone}"
+    )
+
+
+def build_order_emails(order: "Order", customer_email: str) -> list[tuple[str, str, str]]:
+    """Mails a mandar por un pedido nuevo, como (destinatario, asunto, cuerpo):
+    confirmación al cliente y, si hay `ORDER_NOTIFY_EMAIL`, aviso al admin.
+    Se arman con el pedido todavía en la sesión; el envío va en background
+    (ver orders/router.py) con estos textos ya listos."""
+    summary = _order_summary(order)
+    emails = [
+        (
+            customer_email,
+            f"Recibimos tu pedido #{order.id} - {settings.STORE_NAME}",
+            f"¡Gracias por tu compra en {settings.STORE_NAME}!\n\n"
+            f"Tu pedido #{order.id} quedó registrado. Te vamos a escribir para "
+            "coordinar el pago y la entrega.\n\n"
+            f"{summary}\n\n"
+            f"Podés seguirlo en {settings.FRONTEND_URL}/mis-pedidos",
+        )
+    ]
+    if settings.ORDER_NOTIFY_EMAIL:
+        emails.append(
+            (
+                settings.ORDER_NOTIFY_EMAIL,
+                f"Nuevo pedido #{order.id} - {settings.STORE_NAME}",
+                f"Entró el pedido #{order.id} de {customer_email}.\n\n"
+                f"{summary}\n\n"
+                f"Gestionalo en {settings.FRONTEND_URL}/admin/pedidos",
+            )
+        )
+    return emails
+
+
+def send_email_safe(to_email: str, subject: str, body: str) -> None:
+    """Para BackgroundTasks: un SMTP caído no tiene que romper nada que ya
+    se respondió; queda en el log."""
+    try:
+        _send(to_email, subject, body)
+    except Exception:
+        logger.exception("No se pudo enviar el email '%s' a %s", subject, to_email)

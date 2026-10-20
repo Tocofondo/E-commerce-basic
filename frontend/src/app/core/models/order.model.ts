@@ -13,6 +13,8 @@ export interface ShippingInfo {
 export interface Order {
   id: number;
   userId: string;
+  /** Email de la cuenta que hizo el pedido (para el admin). */
+  customerEmail: string | null;
   items: CartItem[];
   total: number;
   status: OrderStatus;

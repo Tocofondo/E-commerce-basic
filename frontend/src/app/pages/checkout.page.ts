@@ -8,6 +8,7 @@ import { AuthService } from '../core/services/auth.service';
 import { WhatsappService } from '../core/services/whatsapp.service';
 import { ProductService } from '../core/services/product.service';
 import { apiErrorMessage } from '../core/http-error';
+import { INVALID_PHONE_MESSAGE, normalizeArPhone } from '../core/phone';
 import { Order, ShippingInfo } from '../core/models/order.model';
 import { VyLogoComponent } from '../shared/brand/vy-logo.component';
 import { PesosPipe } from '../shared/store/pesos.pipe';
@@ -26,12 +27,16 @@ import { PesosPipe } from '../shared/store/pesos.pipe';
               <span class="vy-marker">Pedido #{{ order.id }}</span>
               <span class="vy-heavy">confirmado</span>
             </h1>
-            <p class="vy-muted max-w-md">
-              Mandanos el pedido por WhatsApp así nos llega al toque y coordinamos la entrega.
-            </p>
-            <a [href]="whatsappLink(order)" target="_blank" rel="noopener" class="vy-btn vy-btn--marcador">
-              Enviar pedido por WhatsApp
-            </a>
+            @if (whatsappEnabled) {
+              <p class="vy-muted max-w-md">
+                Mandanos el pedido por WhatsApp así nos llega al toque y coordinamos la entrega.
+              </p>
+              <a [href]="whatsappLink(order)" target="_blank" rel="noopener" class="vy-btn vy-btn--marcador">
+                Enviar pedido por WhatsApp
+              </a>
+            } @else {
+              <p class="vy-muted max-w-md">Te vamos a escribir para coordinar el pago y la entrega.</p>
+            }
             <a routerLink="/mis-pedidos" class="text-sm font-bold">Ver mis pedidos</a>
           </div>
         } @else if (cart.items().length === 0) {
@@ -47,7 +52,7 @@ import { PesosPipe } from '../shared/store/pesos.pipe';
             <form class="vy-card p-5 sm:p-6 flex flex-col gap-4" (ngSubmit)="onSubmit()">
               <h2 class="vy-marker text-xl">Datos de envío</h2>
               <ds-input label="Nombre completo" [required]="true" [(ngModel)]="shipping.fullName" name="fullName" />
-              <ds-input label="Teléfono" type="tel" [required]="true" [(ngModel)]="shipping.phone" name="phone" />
+              <ds-input label="Celular" type="tel" placeholder="341 555-1234" hint="Con código de área, sin 0 ni 15" [required]="true" [(ngModel)]="shipping.phone" name="phone" />
               <ds-input label="Dirección" [required]="true" [(ngModel)]="shipping.address" name="address" />
               <div class="grid grid-cols-2 gap-4">
                 <ds-input label="Ciudad" [required]="true" [(ngModel)]="shipping.city" name="city" />
@@ -123,9 +128,14 @@ export class CheckoutPage {
     if (!this.auth.currentUser()) return;
 
     this.error.set('');
+    const phone = normalizeArPhone(this.shipping.phone);
+    if (!phone) {
+      this.error.set(INVALID_PHONE_MESSAGE);
+      return;
+    }
     this.loading.set(true);
     try {
-      const order = await this.orders.place(this.cart.items(), this.shipping);
+      const order = await this.orders.place(this.cart.items(), { ...this.shipping, phone });
       this.cart.clear();
       this.placedOrder.set(order);
       // El backend descontó stock: refrescar para que el catálogo lo muestre.
@@ -139,6 +149,8 @@ export class CheckoutPage {
       this.loading.set(false);
     }
   }
+
+  whatsappEnabled = this.whatsapp.adminConfigured;
 
   whatsappLink(order: Order): string {
     return this.whatsapp.buildOrderLink(order);

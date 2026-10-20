@@ -15,6 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db.base import Base
 from app.core.money import MONEY_COLUMN
+from app.modules.auth.models import User
 from app.modules.orders.schemas import OrderStatus
 
 
@@ -47,6 +48,11 @@ class Order(Base):
     items: Mapped[list["OrderItem"]] = relationship(
         back_populates="order", cascade="all, delete-orphan", order_by="OrderItem.id"
     )
+    user: Mapped[User] = relationship()
+
+    @property
+    def customer_email(self) -> str | None:
+        return self.user.email if self.user else None
 
     @property
     def shipping(self) -> dict[str, str]:

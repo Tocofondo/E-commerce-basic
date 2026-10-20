@@ -132,7 +132,7 @@ def list_orders_by_user(db: Session, user_id: uuid.UUID) -> list[Order]:
     return list(
         db.scalars(
             select(Order)
-            .options(selectinload(Order.items))
+            .options(selectinload(Order.items), selectinload(Order.user))
             .where(Order.user_id == user_id)
             .order_by(Order.created_at.desc())
         )
@@ -143,7 +143,7 @@ def list_all_orders(db: Session) -> list[Order]:
     # Items en una sola query extra (selectinload), no una por pedido.
     return list(
         db.scalars(
-            select(Order).options(selectinload(Order.items)).order_by(Order.created_at.desc())
+            select(Order).options(selectinload(Order.items), selectinload(Order.user)).order_by(Order.created_at.desc())
         )
     )
 

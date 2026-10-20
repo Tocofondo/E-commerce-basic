@@ -5,6 +5,8 @@ from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, EmailStr, Field
 
+from app.core.phone import ArPhone
+
 # Los roles vivos de la app. Agregar uno nuevo acá + migrar los datos existentes
 # (no hay enum nativo de Postgres que alterar).
 UserRole = Literal["customer", "admin"]
@@ -23,7 +25,7 @@ NormalizedEmail = Annotated[EmailStr, AfterValidator(normalize_email)]
 
 class UserCreate(BaseModel):
     email: NormalizedEmail
-    phone: str = Field(min_length=6, max_length=30)
+    phone: ArPhone
     password: str = Field(min_length=8, max_length=128)
     full_name: str | None = Field(default=None, max_length=255)
     # Sin campo `role`: el registro público siempre crea "customer".

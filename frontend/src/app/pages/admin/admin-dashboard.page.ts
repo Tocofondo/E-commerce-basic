@@ -2,6 +2,12 @@ import { Component, computed, inject } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { ProductService } from '../../core/services/product.service';
 import { OrderService } from '../../core/services/order.service';
+import { Order, OrderStatus } from '../../core/models/order.model';
+
+// Estados que cuentan como venta concretada.
+const SOLD: OrderStatus[] = ['pagado', 'enviado', 'entregado'];
+
+const sum = (orders: Order[]) => orders.reduce((total, o) => total + o.total, 0);
 
 @Component({
   selector: 'app-admin-dashboard-page',
@@ -11,7 +17,7 @@ import { OrderService } from '../../core/services/order.service';
     <div class="flex flex-col gap-6">
       <h1 class="text-2xl font-bold text-neutral-800">Dashboard</h1>
 
-      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div class="bg-surface border border-border rounded-xl p-5">
           <p class="text-sm text-neutral-500">Productos</p>
           <p class="text-2xl font-bold text-neutral-800 mt-1">{{ productCount() }}</p>
@@ -21,8 +27,19 @@ import { OrderService } from '../../core/services/order.service';
           <p class="text-2xl font-bold text-neutral-800 mt-1">{{ orderCount() }}</p>
         </div>
         <div class="bg-surface border border-border rounded-xl p-5">
-          <p class="text-sm text-neutral-500">Ventas totales</p>
+          <p class="text-sm text-neutral-500">Ventas</p>
           <p class="text-2xl font-bold text-neutral-800 mt-1">{{ totalSales() | number: '1.2-2' }}</p>
+          <p class="text-xs text-neutral-400 mt-1">Pedidos pagados, enviados y entregados</p>
+        </div>
+        <div class="bg-surface border border-border rounded-xl p-5">
+          <p class="text-sm text-neutral-500">Pendientes de cobro</p>
+          <p class="text-2xl font-bold text-neutral-800 mt-1">{{ pendingSales() | number: '1.2-2' }}</p>
+          <p class="text-xs text-neutral-400 mt-1">{{ pendingCount() }} pedido(s) pendiente(s)</p>
+        </div>
+        <div class="bg-surface border border-border rounded-xl p-5">
+          <p class="text-sm text-neutral-500">Cancelados</p>
+          <p class="text-2xl font-bold text-neutral-800 mt-1">{{ cancelledCount() }}</p>
+          <p class="text-xs text-neutral-400 mt-1">No suman en ventas</p>
         </div>
       </div>
     </div>
@@ -38,5 +55,10 @@ export class AdminDashboardPage {
 
   productCount = computed(() => this.products.products().length);
   orderCount = computed(() => this.orders.orders().length);
-  totalSales = computed(() => this.orders.orders().reduce((sum, o) => sum + o.total, 0));
+  // Los cancelados (y los pendientes, que todavía no se cobraron) no son ventas.
+  totalSales = computed(() => sum(this.orders.orders().filter(o => SOLD.includes(o.status))));
+  private pending = computed(() => this.orders.orders().filter(o => o.status === 'pendiente'));
+  pendingSales = computed(() => sum(this.pending()));
+  pendingCount = computed(() => this.pending().length);
+  cancelledCount = computed(() => this.orders.orders().filter(o => o.status === 'cancelado').length);
 }
