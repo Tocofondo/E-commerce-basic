@@ -102,6 +102,20 @@ uv run alembic upgrade head
 La URL de conexión para Alembic sale de `app.core.config.settings` (o sea,
 del mismo `.env`), no hay que tocar `alembic.ini`.
 
+## Tests y lint
+
+```bash
+docker compose up -d                       # los tests usan Postgres de verdad
+uv run pytest                              # base aparte: ecommerce_test
+uv run ruff check app alembic tests        # lint
+uv run ruff format app alembic tests       # formato
+```
+
+Los tests crean (si no existe) y **vacían** la base `ecommerce_test`, nunca la de
+desarrollo: se niegan a correr contra una base cuyo nombre no termine en `_test`.
+El schema se arma con `alembic upgrade head`, así que también detectan migraciones
+rotas. (Falta sumar el workflow de GitHub Actions que los corra en cada PR.)
+
 ## Agregar/quitar dependencias
 
 ```bash

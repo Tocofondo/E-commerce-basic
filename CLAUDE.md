@@ -29,8 +29,16 @@ uv run uvicorn app.main:app --reload    # http://localhost:8000 (docs at /docs)
 - Add/remove a dependency: `uv add <pkg>` / `uv remove <pkg>`.
 - New migration after changing models: `uv run alembic revision --autogenerate -m "..."`.
 - Stop stack: `docker compose down` (add `-v` to also drop data volumes).
-- No test suite or linter is configured yet for the backend (`backend/tests/`
-  only has an empty `__init__.py`).
+- Tests: `uv run pytest` (needs the Postgres from `docker compose up -d`). They
+  run against a separate `ecommerce_test` DB (created if missing; the fixtures
+  refuse any DB not ending in `_test`, since they drop its schema) built with
+  `alembic upgrade head`, so they also catch broken migrations. Emails are
+  captured via the `sent_emails` fixture. Helpers live in `tests/conftest.py`.
+- Lint/format: `uv run ruff check app alembic tests` and `uv run ruff format
+  app alembic tests` (config in `pyproject.toml`).
+- No CI workflow in the repo yet: the intended `.github/workflows/ci.yml`
+  (needs a `workflow`-scoped token to push) runs all of that plus `npm ci &&
+  npm run build` on every PR.
 
 ### Frontend (`frontend/`)
 
@@ -237,4 +245,4 @@ integration for it. Admin's WhatsApp number is `ADMIN_WHATSAPP` in
 - Automatic WhatsApp sending without a backend.
 - Cross-device cart sync (still `localStorage`-only, unlike catalog/orders/login
   which are backed by Postgres now).
-- Automated tests.
+- Frontend unit tests (no specs yet; CI only checks that it builds).
