@@ -1,6 +1,12 @@
 # Backend
 
-API en FastAPI + infraestructura de base de datos (PostgreSQL + pgAdmin vía Docker Compose).
+API en FastAPI + infraestructura de base de datos para **desarrollo local** (PostgreSQL +
+pgAdmin vía Docker Compose).
+
+> **`backend/docker-compose.yml` es solo para desarrollo.** Expone Postgres y pgAdmin con
+> contraseñas por defecto (`postgres/postgres`, `admin@admin.com/admin`). En producción se usa
+> el stack de [`../deploy/`](../deploy) siguiendo [`../DEPLOY.md`](../DEPLOY.md): no publica
+> la base ni levanta pgAdmin.
 El venv y las dependencias los gestiona [uv](https://docs.astral.sh/uv/) (`pyproject.toml` +
 `uv.lock`). Instalar uv si no lo tenés:
 
@@ -48,7 +54,7 @@ docker compose up -d              # levanta Postgres + pgAdmin
 uv sync                            # crea .venv e instala las deps (según uv.lock)
 
 uv run alembic upgrade head        # crea las tablas
-uv run python -m app.core.db.seed       # crea los usuarios de prueba (ver más abajo)
+uv run python -m app.core.db.seed       # crea el catálogo inicial (ver más abajo)
 uv run uvicorn app.main:app --reload  # http://localhost:8000
 ```
 
@@ -75,20 +81,16 @@ para `http://localhost:4200` (ver `CORS_ORIGINS` en `.env`).
 `role` es `"customer"` o `"admin"`. El registro público siempre crea `"customer"` — no hay
 forma de pedir `admin` por la API; un admin se crea por seed o a mano en la base.
 
-## Usuarios de prueba (seed)
+## Datos iniciales y cuentas
 
 ```bash
-uv run python -m app.core.db.seed
+uv run python -m app.core.db.seed           # catálogo inicial (idempotente)
+uv run python -m app.core.db.create_admin   # crea (o promueve) un admin, pide los datos por consola
 ```
 
-Es idempotente (correrlo de nuevo no pisa nada si el usuario ya existe). Crea:
-
-| Rol      | Email              | Contraseña    |
-|----------|---------------------|---------------|
-| Admin    | `admin@demo.com`    | `admin1234`   |
-| Cliente  | `cliente@demo.com`  | `cliente1234` |
-
-Para agregar más usuarios de prueba, sumar entradas a `SEED_USERS` en `app/core/db/seed.py`.
+El seed no crea cuentas: los clientes se registran desde `/register` y el registro público
+siempre crea `customer`. Si querés cuentas de prueba fijas en tu máquina, definí
+`SEED_USERS` en `app/core/db/seed_local.py` (está en `.gitignore`, ver `seed.py`).
 
 ## Migraciones
 

@@ -152,10 +152,10 @@ src/app/
                    classes + `--vy-*` tokens come from src/styles/vaconyapa/,
                    loaded through src/brand.scss (separate `styles` entry in
                    angular.json — Tailwind v4 doesn't go through Sass). The
-                   kit's dark `_base.scss` is NOT applied globally (the store
-                   is light); wrap a section in `.vy-oscuro` instead. Asset
-                   paths must stay relative (no leading `/`): the GitHub Pages
-                   deploy runs under `--base-href /E-commerce-basic/`.
+                   kit's dark `_base.scss` is NOT applied globally (admin is
+                   light); the store gets `.vy-oscuro .vy-tienda` (see
+                   brand.scss). Keep asset paths relative (no leading `/`) so
+                   the build works under any `--base-href`.
   core/
     models/        Product, User, CartItem, Order interfaces
     services/      App state as signals; `ProductService`/`OrderService`
