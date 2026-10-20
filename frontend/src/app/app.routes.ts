@@ -14,10 +14,14 @@ import { CartPage } from './pages/cart.page';
 import { CheckoutPage } from './pages/checkout.page';
 import { OrdersPage } from './pages/orders.page';
 import { ProfilePage } from './pages/profile.page';
+import { WithdrawalPage } from './pages/withdrawal.page';
+import { TermsPage } from './pages/terms.page';
+import { PrivacyPage } from './pages/privacy.page';
 import { AdminDashboardPage } from './pages/admin/admin-dashboard.page';
 import { AdminProductsPage } from './pages/admin/admin-products.page';
 import { AdminProductFormPage } from './pages/admin/admin-product-form.page';
 import { AdminOrdersPage } from './pages/admin/admin-orders.page';
+import { AdminWithdrawalsPage } from './pages/admin/admin-withdrawals.page';
 import { BrandDemoComponent } from './shared/brand/brand-demo.component';
 
 export const routes: Routes = [
@@ -37,6 +41,10 @@ export const routes: Routes = [
       { path: 'checkout', component: CheckoutPage, canActivate: [authGuard] },
       { path: 'mis-pedidos', component: OrdersPage, canActivate: [authGuard] },
       { path: 'perfil', component: ProfilePage, canActivate: [authGuard] },
+      // Botón de arrepentimiento: público, sin login (Res. 424/2020).
+      { path: 'arrepentimiento', component: WithdrawalPage },
+      { path: 'terminos', component: TermsPage },
+      { path: 'privacidad', component: PrivacyPage },
     ],
   },
   {
@@ -49,6 +57,7 @@ export const routes: Routes = [
       { path: 'productos/nuevo', component: AdminProductFormPage },
       { path: 'productos/:id', component: AdminProductFormPage },
       { path: 'pedidos', component: AdminOrdersPage },
+      { path: 'arrepentimientos', component: AdminWithdrawalsPage },
     ],
   },
   { path: '**', redirectTo: '' },

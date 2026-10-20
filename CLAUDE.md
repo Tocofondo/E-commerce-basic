@@ -121,6 +121,10 @@ app/
                 `ALLOWED_TRANSITIONS` (mirrored in the frontend's
                 `order.service.ts`); `cancelado`/`entregado` are final and
                 cancelling restocks the items
+    withdrawals/ "botón de arrepentimiento" (Res. 424/2020): public
+                `POST /withdrawals` (no login) returns a tracking code and
+                emails it; admin lists/resolves them at
+                `/admin/arrepentimientos`
   main.py     create_app(): FastAPI instance, CORS, /health
 alembic/      migrations; DB URL comes from app.core.config.settings, not
               alembic.ini directly

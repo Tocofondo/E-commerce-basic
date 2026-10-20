@@ -1,4 +1,5 @@
-"""Envío de emails transaccionales: reset de contraseña y avisos de pedidos.
+"""Envío de emails transaccionales: reset de contraseña, avisos de pedidos y
+constancia del botón de arrepentimiento.
 
 Sin dependencias externas: usa `smtplib`/`email` de la stdlib. Si no hay un
 SMTP configurado (`settings.SMTP_HOST` vacío, el default fuera de producción),
@@ -17,6 +18,7 @@ from app.core.formatting import format_pesos
 
 if TYPE_CHECKING:
     from app.modules.orders.models import Order
+    from app.modules.withdrawals.models import WithdrawalRequest
 
 logger = logging.getLogger(__name__)
 
@@ -97,6 +99,38 @@ def build_order_emails(order: "Order", customer_email: str) -> list[tuple[str, s
                 f"Entró el pedido #{order.id} de {customer_email}.\n\n"
                 f"{summary}\n\n"
                 f"Gestionalo en {settings.FRONTEND_URL}/admin/pedidos",
+            )
+        )
+    return emails
+
+
+def build_withdrawal_emails(request: "WithdrawalRequest") -> list[tuple[str, str, str]]:
+    """Constancia con el código de trámite para quien pidió revocar la compra
+    y, si hay `ORDER_NOTIFY_EMAIL`, aviso al admin."""
+    details = (
+        f"Código de trámite: {request.code}\n"
+        f"Pedido: {request.order_number}\n"
+        f"Nombre: {request.full_name}\n"
+        f"Email: {request.email}\n"
+        f"Teléfono: {request.phone}\n"
+        f"Motivo: {request.reason or '(sin especificar)'}"
+    )
+    emails = [
+        (
+            request.email,
+            f"Recibimos tu pedido de arrepentimiento {request.code} - {settings.STORE_NAME}",
+            f"Recibimos tu pedido para revocar la compra. Guardá este código: es tu "
+            f"constancia del trámite.\n\n{details}\n\n"
+            "Te vamos a contactar para coordinar la devolución.",
+        )
+    ]
+    if settings.ORDER_NOTIFY_EMAIL:
+        emails.append(
+            (
+                settings.ORDER_NOTIFY_EMAIL,
+                f"Arrepentimiento {request.code} - {settings.STORE_NAME}",
+                f"Entró un pedido de arrepentimiento.\n\n{details}\n\n"
+                f"Gestionalo en {settings.FRONTEND_URL}/admin/arrepentimientos",
             )
         )
     return emails
