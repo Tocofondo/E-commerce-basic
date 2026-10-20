@@ -24,9 +24,23 @@ build de Angular usa `/api/v1` relativo (`frontend/src/environments/`).
 - [ ] Poner el número de WhatsApp real del admin en
       `frontend/src/app/core/config/app.config.constants.ts` (`ADMIN_WHATSAPP`,
       formato internacional sin `+` ni espacios, ej. `5493811234567`) y
-      commitearlo.
+      commitearlo. Mientras siga el placeholder, el checkout no muestra el
+      botón "Enviar pedido por WhatsApp".
 - [ ] Tener (opcional pero recomendado) un dominio, ej. un `.com.ar` en
       [NIC Argentina](https://nic.ar).
+
+### Antes de abrir al público
+
+- [ ] Completar los datos del vendedor (`SELLER`: razón social, CUIT,
+      domicilio, email y, si lo tenés, el link del QR "Data Fiscal" de ARCA) y
+      las redes (`SOCIAL_LINKS`) en `app.config.constants.ts`. Se muestran en
+      el pie y en las páginas legales; hoy dicen `COMPLETAR`.
+- [ ] Cambiar el dominio de `og:image` en `frontend/src/index.html` por el
+      real (tiene que ser una URL absoluta).
+- [ ] Hacer revisar por un abogado o contador `/terminos`, `/privacidad` y el
+      botón de arrepentimiento (`/arrepentimiento`): son textos modelo.
+- [ ] Configurar `SMTP_*` y `ORDER_NOTIFY_EMAIL` (paso 4) para que te lleguen
+      los pedidos y los arrepentimientos por mail.
 
 ## 1. Crear la instancia (Lightsail)
 
@@ -82,7 +96,8 @@ Completar como mínimo:
 | `PUBLIC_URL` | `https://mitienda.com.ar` (o `http://<IP>` sin dominio) |
 | `POSTGRES_PASSWORD` | `openssl rand -base64 32 \| tr -d '/+='` |
 | `SECRET_KEY` | `openssl rand -base64 48 \| tr -d '/+='` — **obligatorio**, la API no arranca con el default |
-| `SMTP_*` | Para que llegue el mail de "olvidé mi contraseña". Vacío = el link solo sale en los logs |
+| `SMTP_*` | Para que lleguen los mails (reset de contraseña, confirmación de pedido). Vacío = solo salen en los logs |
+| `ORDER_NOTIFY_EMAIL` | Tu casilla: te llega un aviso por cada pedido nuevo (requiere `SMTP_*`) |
 
 ## 5. Levantar
 

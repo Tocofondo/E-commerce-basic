@@ -29,8 +29,16 @@ uv run uvicorn app.main:app --reload    # http://localhost:8000 (docs at /docs)
 - Add/remove a dependency: `uv add <pkg>` / `uv remove <pkg>`.
 - New migration after changing models: `uv run alembic revision --autogenerate -m "..."`.
 - Stop stack: `docker compose down` (add `-v` to also drop data volumes).
-- No test suite or linter is configured yet for the backend (`backend/tests/`
-  only has an empty `__init__.py`).
+- Tests: `uv run pytest` (needs the Postgres from `docker compose up -d`). They
+  run against a separate `ecommerce_test` DB (created if missing; the fixtures
+  refuse any DB not ending in `_test`, since they drop its schema) built with
+  `alembic upgrade head`, so they also catch broken migrations. Emails are
+  captured via the `sent_emails` fixture. Helpers live in `tests/conftest.py`.
+- Lint/format: `uv run ruff check app alembic tests` and `uv run ruff format
+  app alembic tests` (config in `pyproject.toml`).
+- No CI workflow in the repo yet: the intended `.github/workflows/ci.yml`
+  (needs a `workflow`-scoped token to push) runs all of that plus `npm ci &&
+  npm run build` on every PR.
 
 ### Frontend (`frontend/`)
 
@@ -104,15 +112,27 @@ app/
                 `PATCH /products/{id}` and partial (`exclude_unset`): an
                 absent field is kept, an explicit `null` clears it. Uploaded
                 images are checked by magic bytes, not just content-type
+                Money columns are `Numeric(12, 2)` + `Decimal`
+                (`core/money.py`'s `Money` type still serializes as a JSON
+                number). `DELETE` is a soft delete (`is_active = false`,
+                "pausar" in the admin): files are kept and paused products
+                drop out of `GET /products`/ordering; `GET /products/all`
+                (admin) includes them. Image paths are stored relative
+                (`/static/...`) and made absolute on the way out
+                (`core/urls.py`'s `public_url`).
     orders/     order placement + admin status updates. `OrderItem` snapshots
-                product name/image/price at purchase time (survives the
-                product being edited or deleted later); `create_order`
+                product name/image path/price at purchase time (survives the
+                product being edited or paused later); `create_order`
                 locks the product rows (`SELECT ... FOR UPDATE`, see
                 `_lock_products`) before checking/decrementing stock, so
                 concurrent orders can't oversell. Status changes follow
                 `ALLOWED_TRANSITIONS` (mirrored in the frontend's
                 `order.service.ts`); `cancelado`/`entregado` are final and
                 cancelling restocks the items
+    withdrawals/ "botón de arrepentimiento" (Res. 424/2020): public
+                `POST /withdrawals` (no login) returns a tracking code and
+                emails it; admin lists/resolves them at
+                `/admin/arrepentimientos`
   main.py     create_app(): FastAPI instance, CORS, /health
 alembic/      migrations; DB URL comes from app.core.config.settings, not
               alembic.ini directly
@@ -152,10 +172,10 @@ src/app/
                    classes + `--vy-*` tokens come from src/styles/vaconyapa/,
                    loaded through src/brand.scss (separate `styles` entry in
                    angular.json — Tailwind v4 doesn't go through Sass). The
-                   kit's dark `_base.scss` is NOT applied globally (the store
-                   is light); wrap a section in `.vy-oscuro` instead. Asset
-                   paths must stay relative (no leading `/`): the GitHub Pages
-                   deploy runs under `--base-href /E-commerce-basic/`.
+                   kit's dark `_base.scss` is NOT applied globally (admin is
+                   light); the store gets `.vy-oscuro .vy-tienda` (see
+                   brand.scss). Keep asset paths relative (no leading `/`) so
+                   the build works under any `--base-href`.
   core/
     models/        Product, User, CartItem, Order interfaces
     services/      App state as signals; `ProductService`/`OrderService`
@@ -180,10 +200,12 @@ Bearer <token>` to API requests and logs out on a 401.
 - `AuthService` (`ec_session` in localStorage, just the JWT + current user for
   instant hydration on reload): `login()` does `POST /auth/login` then
   `GET /auth/me`.
-- `ProductService`: loads the catalog once into a `products` signal
-  (`GET /products` on construction) and does `getById` against that in-memory
-  list rather than re-fetching; `create`/`update`/`remove` hit the admin CRUD
-  endpoints and patch the signal with the response. `refresh()` never
+- `ProductService`: loads the catalog into `allProducts` (`GET /products`,
+  or `GET /products/all` with paused ones when the user is admin; reloads when
+  that changes) and exposes `products`, the active-only catalog the store and
+  cart use. `getById` looks in `products`, `getAnyById` (admin) in
+  `allProducts`, no re-fetching; `create`/`update`/`pause`/`reactivate` hit
+  the admin CRUD endpoints and patch the signal with the response. `refresh()` never
   rejects: pages read `loaded()` (until true, "not in `products`" means "not
   loaded yet", not "doesn't exist") and `error()` to show a spinner or a
   retry button. `core/http-error.ts` (`apiErrorMessage`) turns HTTP errors
@@ -223,4 +245,4 @@ integration for it. Admin's WhatsApp number is `ADMIN_WHATSAPP` in
 - Automatic WhatsApp sending without a backend.
 - Cross-device cart sync (still `localStorage`-only, unlike catalog/orders/login
   which are backed by Postgres now).
-- Automated tests.
+- Frontend unit tests (no specs yet; CI only checks that it builds).

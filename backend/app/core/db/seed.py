@@ -12,8 +12,8 @@ import logging
 
 from sqlalchemy import select
 
-from app.core.logging import setup_logging
 from app.core.db.session import SessionLocal
+from app.core.logging import setup_logging
 from app.modules.auth.schemas import UserCreate, UserRole
 from app.modules.auth.service import create_user, get_user_by_email
 from app.modules.products.models import Product
@@ -46,9 +46,9 @@ SEED_PRODUCTS: list[ProductCreate] = [
         price=79.99,
         original_price=129.99,
         badge=BadgeInfo(label="Sale", variant="sale"),
-        rating=4.5,
-        review_count=128,
-        description="Auriculares inalámbricos con cancelación de ruido activa y 30 horas de batería.",
+        description=(
+            "Auriculares inalámbricos con cancelación de ruido activa y 30 horas de batería."
+        ),
         category="Electrónica",
         stock=24,
     ),
@@ -56,8 +56,6 @@ SEED_PRODUCTS: list[ProductCreate] = [
         name="Zapatillas Running Ultra Boost",
         price=149.99,
         badge=BadgeInfo(label="Nuevo", variant="new"),
-        rating=5,
-        review_count=43,
         description="Zapatillas de running con amortiguación reactiva para largas distancias.",
         category="Deportes",
         stock=12,
@@ -66,9 +64,7 @@ SEED_PRODUCTS: list[ProductCreate] = [
         name="Mochila Urbana Minimalista 25L",
         price=59.99,
         original_price=89.99,
-        rating=4,
-        review_count=76,
-        description="Mochila resistente al agua con compartimento acolchado para laptop de 15\".",
+        description='Mochila resistente al agua con compartimento acolchado para laptop de 15".',
         category="Accesorios",
         stock=30,
     ),
@@ -76,8 +72,6 @@ SEED_PRODUCTS: list[ProductCreate] = [
         name="Reloj Inteligente Serie X",
         price=199.99,
         badge=BadgeInfo(label="Destacado", variant="featured"),
-        rating=4.5,
-        review_count=201,
         description="Reloj inteligente con GPS, monitor de ritmo cardíaco y resistencia al agua.",
         category="Electrónica",
         stock=0,
@@ -85,8 +79,6 @@ SEED_PRODUCTS: list[ProductCreate] = [
     ProductCreate(
         name="Campera Impermeable Trekking",
         price=89.99,
-        rating=4.2,
-        review_count=34,
         description="Campera impermeable y transpirable, ideal para trekking y montaña.",
         category="Ropa",
         stock=18,
@@ -96,8 +88,6 @@ SEED_PRODUCTS: list[ProductCreate] = [
         price=34.99,
         original_price=49.99,
         badge=BadgeInfo(label="Sale", variant="sale"),
-        rating=4.7,
-        review_count=58,
         description="Lámpara LED regulable con puerto USB y temperatura de color ajustable.",
         category="Hogar",
         stock=40,
@@ -105,8 +95,6 @@ SEED_PRODUCTS: list[ProductCreate] = [
     ProductCreate(
         name="Set de Sartenes Antiadherentes",
         price=69.99,
-        rating=4.3,
-        review_count=91,
         description="Set de 3 sartenes antiadherentes aptas para inducción.",
         category="Hogar",
         stock=15,
@@ -115,8 +103,6 @@ SEED_PRODUCTS: list[ProductCreate] = [
         name="Bicicleta Urbana Plegable",
         price=349.99,
         badge=BadgeInfo(label="Destacado", variant="featured"),
-        rating=4.8,
-        review_count=22,
         description="Bicicleta plegable liviana ideal para combinar con transporte público.",
         category="Deportes",
         stock=6,

@@ -10,6 +10,8 @@ export interface Product extends ProductCard {
   description: string;
   category: string;
   stock: number;
+  /** `false` = pausado por el admin (soft delete): fuera de la tienda. */
+  isActive: boolean;
   // Galería completa (0..n). `image` (heredado de ProductCard) sigue
   // existiendo para no tocar los componentes que solo muestran una foto —
   // el backend lo calcula como `images[0].url`.

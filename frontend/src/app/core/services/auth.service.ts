@@ -128,6 +128,39 @@ export class AuthService {
     }
   }
 
+  /** Edita nombre y/o celular de la cuenta (`PATCH /auth/me`). Devuelve null
+   * si salió bien o el mensaje de error (ej. celular inválido). */
+  async updateProfile(data: { fullName: string; phone: string }): Promise<string | null> {
+    const token = this.token();
+    if (!token) return 'Tu sesión expiró. Volvé a ingresar.';
+    try {
+      await firstValueFrom(
+        this.http.patch(`${API_BASE_URL}/auth/me`, { full_name: data.fullName || null, phone: data.phone }),
+      );
+      await this.hydrateSession(token);
+      return null;
+    } catch (err) {
+      return apiErrorMessage(err, 'No se pudieron guardar los cambios.');
+    }
+  }
+
+  /** Cambia la contraseña estando logueado. El backend cierra las demás
+   * sesiones y devuelve un token nuevo para esta. */
+  async changePassword(currentPassword: string, newPassword: string): Promise<string | null> {
+    try {
+      const res = await firstValueFrom(
+        this.http.post<LoginResponse>(`${API_BASE_URL}/auth/change-password`, {
+          current_password: currentPassword,
+          new_password: newPassword,
+        }),
+      );
+      await this.hydrateSession(res.access_token);
+      return null;
+    } catch (err) {
+      return apiErrorMessage(err, 'No se pudo cambiar la contraseña.');
+    }
+  }
+
   logout(): void {
     this.session.set(null);
     this.storage.save(STORAGE_KEY, null);

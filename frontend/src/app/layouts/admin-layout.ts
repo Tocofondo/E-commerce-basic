@@ -26,6 +26,10 @@ import { AuthService } from '../core/services/auth.service';
              class="px-3 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 transition-colors">
             Pedidos
           </a>
+          <a routerLink="/admin/arrepentimientos" routerLinkActive="bg-brand-50 text-brand-700"
+             class="px-3 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 transition-colors">
+            Arrepentimientos
+          </a>
         </nav>
         <div class="p-3 border-t border-border flex flex-col gap-2">
           <span class="text-xs text-neutral-500 px-1">{{ auth.currentUser()?.name }}</span>

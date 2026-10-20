@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, verify_password
 from app.modules.auth.models import User
-from app.modules.auth.schemas import UserCreate, UserRole, normalize_email
+from app.modules.auth.schemas import UserCreate, UserRole, UserUpdate, normalize_email
 
 logger = logging.getLogger(__name__)
 
@@ -61,4 +61,14 @@ def set_password(db: Session, user: User, new_password: str) -> None:
     user.hashed_password = hash_password(new_password)
     db.add(user)
     db.commit()
-    logger.info("Contraseña actualizada (reset): %s", user.email)
+    logger.info("Contraseña actualizada: %s", user.email)
+
+
+def update_profile(db: Session, user: User, data: UserUpdate) -> User:
+    for field, value in data.model_dump(exclude_unset=True).items():
+        if field == "phone" and value is None:
+            continue  # la columna es NOT NULL: null = no tocar
+        setattr(user, field, value)
+    db.commit()
+    db.refresh(user)
+    return user

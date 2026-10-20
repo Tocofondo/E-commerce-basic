@@ -32,6 +32,7 @@ interface OrderItemResponse {
 interface OrderResponse {
   id: number;
   userId: string;
+  customerEmail: string | null;
   status: OrderStatus;
   total: number;
   createdAt: string;
@@ -47,6 +48,7 @@ function toOrder(res: OrderResponse): Order {
   return {
     id: res.id,
     userId: res.userId,
+    customerEmail: res.customerEmail,
     total: res.total,
     status: res.status,
     createdAt: res.createdAt,
@@ -62,6 +64,7 @@ function toOrder(res: OrderResponse): Order {
         description: '',
         category: '',
         stock: 0,
+        isActive: true,
       },
     })),
   };

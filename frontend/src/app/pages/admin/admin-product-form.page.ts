@@ -187,10 +187,10 @@ export class AdminProductFormPage implements OnDestroy {
   /** El producto puede no estar aún en memoria si se entra directo a esta
    * URL (ej. F5) antes de que termine el fetch inicial del catálogo. */
   private async loadForEdit(id: number): Promise<void> {
-    let product = this.productsSrv.getById(id);
+    let product = this.productsSrv.getAnyById(id);
     if (!product) {
       await this.productsSrv.refresh();
-      product = this.productsSrv.getById(id);
+      product = this.productsSrv.getAnyById(id);
     }
     if (!product) return;
 

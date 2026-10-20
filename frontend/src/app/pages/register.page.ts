@@ -4,6 +4,7 @@ import { Router, RouterLink } from '@angular/router';
 import { DsInput } from '../design-system/index';
 import { VyLogoComponent } from '../shared/brand/vy-logo.component';
 import { AuthService } from '../core/services/auth.service';
+import { INVALID_PHONE_MESSAGE, normalizeArPhone } from '../core/phone';
 
 @Component({
   selector: 'app-register-page',
@@ -35,9 +36,10 @@ import { AuthService } from '../core/services/auth.service';
             name="email"
           />
           <ds-input
-            label="Teléfono"
+            label="Celular"
             type="tel"
-            placeholder="5493811234567"
+            placeholder="341 555-1234"
+            hint="Con código de área, sin 0 ni 15"
             [required]="true"
             [(ngModel)]="phone"
             name="phone"
@@ -103,13 +105,18 @@ export class RegisterPage {
       this.error.set('Las contraseñas no coinciden.');
       return;
     }
+    const phone = normalizeArPhone(this.phone);
+    if (!phone) {
+      this.error.set(INVALID_PHONE_MESSAGE);
+      return;
+    }
 
     this.loading.set(true);
     let errorMessage: string | null;
     try {
       errorMessage = await this.auth.register({
         email: this.email,
-        phone: this.phone,
+        phone,
         password: this.password,
         fullName: this.fullName,
       });

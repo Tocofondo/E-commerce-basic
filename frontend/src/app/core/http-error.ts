@@ -19,5 +19,13 @@ export function apiErrorMessage(err: unknown, fallback: string): string {
   if (err instanceof HttpErrorResponse && typeof err.error?.detail === 'string') {
     return err.error.detail;
   }
+  // 422 de validación de Pydantic: lista de errores; el primero que traiga un
+  // mensaje propio (los `ValueError` del backend, ej. teléfono inválido).
+  if (err instanceof HttpErrorResponse && err.status === 422 && Array.isArray(err.error?.detail)) {
+    const custom = err.error.detail.find(
+      (d: { msg?: unknown }) => typeof d.msg === 'string' && d.msg.startsWith('Value error, '),
+    );
+    if (custom) return custom.msg.slice('Value error, '.length);
+  }
   return fallback;
 }

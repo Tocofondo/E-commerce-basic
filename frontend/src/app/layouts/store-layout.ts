@@ -3,6 +3,7 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 import { AuthService } from '../core/services/auth.service';
 import { CartService } from '../core/services/cart.service';
 import { VyLogoComponent } from '../shared/brand/vy-logo.component';
+import { SELLER, SOCIAL_LINKS, STORE_NAME } from '../core/config/app.config.constants';
 
 interface StoreLink {
   label: string;
@@ -76,6 +77,15 @@ interface StoreLink {
         <div class="pie-marca">
           <vy-logo alto="34px" />
           <p class="vy-muted">Bueno, barato y con yapa. Envíos a todo Rosario.</p>
+          <!-- Res. 424/2020: acceso directo y visible al botón de arrepentimiento. -->
+          <a routerLink="/arrepentimiento" class="vy-btn vy-btn--secundario vy-btn--chico self-start">Botón de arrepentimiento</a>
+          @if (socials.length) {
+            <div class="redes">
+              @for (social of socials; track social.label) {
+                <a [href]="social.href" target="_blank" rel="noopener">{{ social.label }}</a>
+              }
+            </div>
+          }
         </div>
 
         @for (col of footerColumns; track col.title) {
@@ -88,7 +98,16 @@ interface StoreLink {
         }
       </div>
       <div class="vy-container pie-base">
-        <span class="vy-label">Rosario, Santa Fe · © {{ year }} VACONYAPA</span>
+        <!-- Datos del vendedor (Ley 24.240): ver SELLER en app.config.constants.ts -->
+        <p class="vendedor">
+          {{ seller.legalName }} · CUIT {{ seller.cuit }} · {{ seller.address }} · {{ seller.email }}
+        </p>
+        <div class="pie-base-fila">
+          <span class="vy-label">© {{ year }} {{ storeName }}</span>
+          @if (seller.dataFiscalUrl) {
+            <a [href]="seller.dataFiscalUrl" target="_blank" rel="noopener" class="vy-label">Data Fiscal</a>
+          }
+        </div>
       </div>
     </footer>
   `,
@@ -166,14 +185,20 @@ interface StoreLink {
         grid-template-columns: 1fr 1fr;
       }
       .pie-marca { grid-column: 1 / -1; display: flex; flex-direction: column; gap: var(--vy-space-3); }
-      @media (min-width: 768px) {
-        .pie-in { grid-template-columns: 2fr 1fr 1fr; }
+      @media (min-width: 900px) {
+        .pie-in { grid-template-columns: 2fr 1fr 1fr 1fr; }
         .pie-marca { grid-column: auto; }
       }
+      .redes { display: flex; gap: var(--vy-space-4); }
+      .redes a { color: var(--vy-texto-suave); font-size: var(--vy-fs-sm); font-weight: 700; text-decoration: none; }
+      .redes a:hover { color: var(--vy-verde); }
       .pie-columna { display: flex; flex-direction: column; gap: var(--vy-space-2); }
       .pie-columna a { color: var(--vy-texto-suave); text-decoration: none; font-size: var(--vy-fs-sm); }
       .pie-columna a:hover { color: var(--vy-verde); }
-      .pie-base { border-top: 1px solid var(--vy-borde); padding-block: var(--vy-space-4); }
+      .pie-base { border-top: 1px solid var(--vy-borde); padding-block: var(--vy-space-4); display: flex; flex-direction: column; gap: var(--vy-space-2); }
+      .vendedor { color: var(--vy-texto-tenue); font-size: var(--vy-fs-xs); }
+      .pie-base-fila { display: flex; justify-content: space-between; gap: var(--vy-space-4); flex-wrap: wrap; }
+      .pie-base-fila a { text-decoration: none; }
     `,
   ],
 })
@@ -206,7 +231,19 @@ export class StoreLayout {
         { label: 'Perfil', href: '/perfil' },
       ],
     },
+    {
+      title: 'Legales',
+      links: [
+        { label: 'Términos y condiciones', href: '/terminos' },
+        { label: 'Privacidad', href: '/privacidad' },
+        { label: 'Botón de arrepentimiento', href: '/arrepentimiento' },
+      ],
+    },
   ];
+
+  seller = SELLER;
+  storeName = STORE_NAME;
+  socials = SOCIAL_LINKS.filter(s => s.href);
 
   onAccountClick(): void {
     this.router.navigate([this.auth.isLoggedIn() ? '/perfil' : '/login']);

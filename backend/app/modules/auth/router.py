@@ -7,22 +7,25 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.core import rate_limit
+from app.core.db.session import get_db
 from app.core.email import send_password_reset_email
 from app.core.security import (
     create_access_token,
     create_password_reset_token,
     decode_password_reset_token,
     password_fingerprint,
+    verify_password,
 )
-from app.core.db.session import get_db
 from app.modules.auth.dependencies import get_current_active_user
 from app.modules.auth.models import User
 from app.modules.auth.schemas import (
+    ChangePasswordRequest,
     ForgotPasswordRequest,
     ResetPasswordRequest,
     Token,
     UserCreate,
     UserRead,
+    UserUpdate,
     normalize_email,
 )
 from app.modules.auth.service import (
@@ -31,6 +34,7 @@ from app.modules.auth.service import (
     create_user,
     get_user_by_email,
     set_password,
+    update_profile,
 )
 
 logger = logging.getLogger(__name__)
@@ -45,6 +49,7 @@ LOGIN_EMAIL_FAILURES_LIMIT = (5, 300)  # 5 contraseñas mal en 5 min por email
 REGISTER_IP_LIMIT = (10, 3600)
 FORGOT_IP_LIMIT = (10, 3600)
 FORGOT_EMAIL_LIMIT = (3, 3600)
+CHANGE_PASSWORD_FAILURES_LIMIT = (5, 300)
 
 
 def _send_password_reset_email_safe(email: str, token: str) -> None:
@@ -101,6 +106,40 @@ def read_me(current_user: User = Depends(get_current_active_user)) -> User:
     return current_user
 
 
+@router.patch("/me", response_model=UserRead)
+def update_me(
+    body: UserUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+) -> User:
+    return update_profile(db, current_user, body)
+
+
+@router.post("/change-password", response_model=Token)
+def change_password(
+    body: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+) -> Token:
+    """Cambia la contraseña estando logueado. Como la huella de la contraseña
+    va en los JWT, esto cierra las demás sesiones: se devuelve un token nuevo
+    para que esta siga abierta."""
+    failures_key = f"change-password:{current_user.id}"
+    rate_limit.ensure_not_limited(failures_key, *CHANGE_PASSWORD_FAILURES_LIMIT)
+    if not verify_password(body.current_password, current_user.hashed_password):
+        rate_limit.record(failures_key)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="La contraseña actual no es correcta"
+        )
+    set_password(db, current_user, body.new_password)
+    return Token(
+        access_token=create_access_token(
+            subject=current_user.email,
+            fingerprint=password_fingerprint(current_user.hashed_password),
+        )
+    )
+
+
 @router.post("/forgot-password", status_code=status.HTTP_200_OK)
 def forgot_password(
     request: Request,
@@ -122,7 +161,9 @@ def forgot_password(
     else:
         logger.info("Forgot-password para email no registrado: %s", body.email)
     # Mismo mensaje exista o no el email: no se revela si una cuenta existe.
-    return {"detail": "Si el email está registrado, te enviamos un link para restablecer tu contraseña."}
+    return {
+        "detail": "Si el email está registrado, te enviamos un link para restablecer tu contraseña."
+    }
 
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)

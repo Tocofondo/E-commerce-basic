@@ -82,10 +82,17 @@ class Settings(BaseSettings):
     # Se puede apagar para tests o debugging local.
     RATE_LIMIT_ENABLED: bool = True
 
+    # --- Tienda ---
+    # Nombre que aparece en los emails (asunto y cuerpo).
+    STORE_NAME: str = "VACONYAPA"
+    # Casilla que recibe el aviso de cada pedido nuevo. Vacío = no se avisa
+    # por mail (el pedido igual queda en /admin/pedidos).
+    ORDER_NOTIFY_EMAIL: str = ""
+
     # --- Frontend (para armar el link de "olvidé mi contraseña") ---
     FRONTEND_URL: str = "http://localhost:4200"
 
-    # --- SMTP (envío del email de "olvidé mi contraseña") ---
+    # --- SMTP (emails de "olvidé mi contraseña" y de pedidos) ---
     # Si SMTP_HOST queda vacío, no se manda el mail: se loguea el link de
     # reseteo en la consola del backend, para poder probar el flujo en local
     # sin credenciales de un servidor de correo real.
@@ -94,7 +101,7 @@ class Settings(BaseSettings):
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     SMTP_USE_TLS: bool = True
-    SMTP_FROM: str = "no-reply@mitienda.com"
+    SMTP_FROM: str = "no-reply@vaconyapa.com.ar"
 
     # --- Archivos estáticos (imágenes de producto) ---
     # URL pública con la que se arma el link absoluto de cada imagen

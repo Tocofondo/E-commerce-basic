@@ -12,5 +12,6 @@ from app.core.db.base import Base
 from app.modules.auth.models import User  # noqa: F401
 from app.modules.orders.models import Order, OrderItem  # noqa: F401
 from app.modules.products.models import Product, ProductImage  # noqa: F401
+from app.modules.withdrawals.models import WithdrawalRequest  # noqa: F401
 
 __all__ = ["Base"]

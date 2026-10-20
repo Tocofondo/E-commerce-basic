@@ -2,12 +2,27 @@
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, DateTime, Float, ForeignKey, Integer, String, Text, UUID, func
+from sqlalchemy import (
+    UUID,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    func,
+    true,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.config import settings
 from app.core.db.base import Base
+from app.core.money import MONEY_COLUMN
+from app.core.urls import public_url
 
 
 class Product(Base):
@@ -24,8 +39,8 @@ class Product(Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=False, default="")
     category: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
-    price: Mapped[float] = mapped_column(Float, nullable=False)
-    original_price: Mapped[float | None] = mapped_column(Float, nullable=True)
+    price: Mapped[Decimal] = mapped_column(MONEY_COLUMN, nullable=False)
+    original_price: Mapped[Decimal | None] = mapped_column(MONEY_COLUMN, nullable=True)
     stock: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     rating: Mapped[float | None] = mapped_column(Float, nullable=True)
     review_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -34,6 +49,12 @@ class Product(Base):
     # que entiende <ds-badge> en el frontend.
     badge_label: Mapped[str | None] = mapped_column(String(50), nullable=True)
     badge_variant: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # Soft delete: "borrar" un producto lo pausa (sale del catálogo público y
+    # no se puede comprar) pero conserva la fila y sus imágenes, que siguen
+    # referenciadas por los pedidos viejos. El admin lo puede reactivar.
+    is_active: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true(), index=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -83,8 +104,10 @@ class ProductImage(Base):
     product: Mapped["Product"] = relationship(back_populates="images")
 
     @property
+    def path(self) -> str:
+        """Ruta relativa al backend: es lo que se guarda en los pedidos."""
+        return f"{settings.STATIC_URL_PREFIX}/products/{self.product_id}/{self.filename}"
+
+    @property
     def url(self) -> str:
-        return (
-            f"{settings.BACKEND_PUBLIC_URL}{settings.STATIC_URL_PREFIX}"
-            f"/products/{self.product_id}/{self.filename}"
-        )
+        return public_url(self.path)

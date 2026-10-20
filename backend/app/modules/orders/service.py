@@ -4,9 +4,10 @@ Response): recibe una Session y datos ya validados.
 
 import uuid
 from collections import defaultdict
+from decimal import Decimal
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.modules.orders.models import Order, OrderItem
 from app.modules.orders.schemas import OrderCreate, OrderStatus
@@ -64,9 +65,7 @@ class InsufficientStockError(Exception):
         self.available = available
         # El mensaje llega tal cual al cliente (detail del 400): con el nombre
         # sabe qué ajustar en el carrito.
-        super().__init__(
-            f"No hay stock suficiente de \"{product_name}\" (disponibles: {available})"
-        )
+        super().__init__(f'No hay stock suficiente de "{product_name}" (disponibles: {available})')
 
 
 def create_order(db: Session, user_id: uuid.UUID, order_in: OrderCreate) -> Order:
@@ -82,10 +81,11 @@ def create_order(db: Session, user_id: uuid.UUID, order_in: OrderCreate) -> Orde
     try:
         products = _lock_products(db, set(qty_by_product))
         items: list[OrderItem] = []
-        total = 0.0
+        total = Decimal("0")
         for product_id, qty in qty_by_product.items():
             product = products.get(product_id)
-            if product is None:
+            # Un producto pausado (soft delete) no se puede comprar.
+            if product is None or not product.is_active:
                 raise ProductNotFoundError(product_id)
             if product.stock < qty:
                 raise InsufficientStockError(product.id, product.name, product.stock)
@@ -94,7 +94,7 @@ def create_order(db: Session, user_id: uuid.UUID, order_in: OrderCreate) -> Orde
             total += product.price * qty
             # Snapshot: si el producto no tiene imágenes cargadas, el pedido
             # queda con string vacío (el frontend ya maneja `image` ausente).
-            product_image = product.images[0].url if product.images else ""
+            product_image = product.images[0].path if product.images else ""
             items.append(
                 OrderItem(
                     product_id=product.id,
@@ -128,12 +128,24 @@ def create_order(db: Session, user_id: uuid.UUID, order_in: OrderCreate) -> Orde
 
 def list_orders_by_user(db: Session, user_id: uuid.UUID) -> list[Order]:
     return list(
-        db.scalars(select(Order).where(Order.user_id == user_id).order_by(Order.created_at.desc()))
+        db.scalars(
+            select(Order)
+            .options(selectinload(Order.items), selectinload(Order.user))
+            .where(Order.user_id == user_id)
+            .order_by(Order.created_at.desc())
+        )
     )
 
 
 def list_all_orders(db: Session) -> list[Order]:
-    return list(db.scalars(select(Order).order_by(Order.created_at.desc())))
+    # Items en una sola query extra (selectinload), no una por pedido.
+    return list(
+        db.scalars(
+            select(Order)
+            .options(selectinload(Order.items), selectinload(Order.user))
+            .order_by(Order.created_at.desc())
+        )
+    )
 
 
 def update_order_status(db: Session, order_id: int, status: OrderStatus) -> Order:

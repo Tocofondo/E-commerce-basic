@@ -33,13 +33,21 @@ def list_all(db: Session = Depends(get_db)) -> list[Product]:
     return list_products(db)
 
 
+# Declarada antes de `/{product_id}` para que "all" no se lea como un id.
+@router.get("/all", response_model=list[ProductRead])
+def list_all_including_inactive(
+    db: Session = Depends(get_db),
+    _admin=Depends(get_current_admin_user),
+) -> list[Product]:
+    """Para el panel de admin: incluye los productos pausados."""
+    return list_products(db, include_inactive=True)
+
+
 @router.get("/{product_id}", response_model=ProductRead)
 def get_one(product_id: int, db: Session = Depends(get_db)) -> Product:
     product = get_product(db, product_id)
-    if product is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado"
-        )
+    if product is None or not product.is_active:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado")
     return product
 
 
@@ -69,14 +77,15 @@ def update(
         ) from exc
 
 
-@router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/{product_id}", response_model=ProductRead)
 def remove(
     product_id: int,
     db: Session = Depends(get_db),
     _admin=Depends(get_current_admin_user),
-) -> None:
+) -> Product:
+    """Pausa el producto (soft delete) y lo devuelve con `isActive: false`."""
     try:
-        delete_product(db, product_id)
+        return delete_product(db, product_id)
     except ProductNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado"

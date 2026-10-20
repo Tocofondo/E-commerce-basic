@@ -136,6 +136,31 @@
     }
   }
 
+  // Páginas de texto (términos, privacidad).
+  .vy-legal {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vy-space-3);
+    color: var(--vy-texto-suave);
+    line-height: 1.65;
+
+    h2 {
+      margin-top: var(--vy-space-5);
+      color: var(--vy-blanco);
+      font-size: var(--vy-fs-lg);
+      font-weight: 800;
+    }
+
+    ul {
+      padding-left: 1.25rem;
+      list-style: disc;
+    }
+
+    strong {
+      color: var(--vy-blanco);
+    }
+  }
+
   // Selector de cantidad (+ / -).
   .vy-cantidad {
     display: inline-flex;

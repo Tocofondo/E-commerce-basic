@@ -20,3 +20,22 @@ dependencies = [
 # No es un paquete instalable (no hay build-system): uv solo gestiona el
 # venv y las dependencias, no intenta empaquetar app/.
 package = false
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+# B008: `Depends(...)` en los defaults es el idioma de FastAPI.
+ignore = ["B008"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
