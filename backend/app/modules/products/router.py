@@ -47,9 +47,7 @@ def list_all_including_inactive(
 def get_one(product_id: int, db: Session = Depends(get_db)) -> Product:
     product = get_product(db, product_id)
     if product is None or not product.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado")
     return product
 
 

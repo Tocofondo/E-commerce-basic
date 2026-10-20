@@ -12,8 +12,8 @@ import logging
 
 from sqlalchemy import select
 
-from app.core.logging import setup_logging
 from app.core.db.session import SessionLocal
+from app.core.logging import setup_logging
 from app.modules.auth.schemas import UserCreate, UserRole
 from app.modules.auth.service import create_user, get_user_by_email
 from app.modules.products.models import Product
@@ -46,7 +46,9 @@ SEED_PRODUCTS: list[ProductCreate] = [
         price=79.99,
         original_price=129.99,
         badge=BadgeInfo(label="Sale", variant="sale"),
-        description="Auriculares inalámbricos con cancelación de ruido activa y 30 horas de batería.",
+        description=(
+            "Auriculares inalámbricos con cancelación de ruido activa y 30 horas de batería."
+        ),
         category="Electrónica",
         stock=24,
     ),
@@ -62,7 +64,7 @@ SEED_PRODUCTS: list[ProductCreate] = [
         name="Mochila Urbana Minimalista 25L",
         price=59.99,
         original_price=89.99,
-        description="Mochila resistente al agua con compartimento acolchado para laptop de 15\".",
+        description='Mochila resistente al agua con compartimento acolchado para laptop de 15".',
         category="Accesorios",
         stock=30,
     ),

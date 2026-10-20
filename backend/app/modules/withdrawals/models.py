@@ -12,7 +12,9 @@ from app.modules.withdrawals.schemas import WithdrawalStatus
 class WithdrawalRequest(Base):
     __tablename__ = "withdrawal_requests"
     __table_args__ = (
-        CheckConstraint("status IN ('pendiente', 'resuelta')", name="ck_withdrawal_requests_status"),
+        CheckConstraint(
+            "status IN ('pendiente', 'resuelta')", name="ck_withdrawal_requests_status"
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

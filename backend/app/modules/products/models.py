@@ -5,6 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    UUID,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -13,7 +14,6 @@ from sqlalchemy import (
     Integer,
     String,
     Text,
-    UUID,
     func,
     true,
 )

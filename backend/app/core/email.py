@@ -10,7 +10,6 @@ local sin depender de credenciales de correo reales.
 import logging
 import smtplib
 from email.message import EmailMessage
-
 from typing import TYPE_CHECKING
 
 from app.core.config import settings
@@ -26,8 +25,7 @@ logger = logging.getLogger(__name__)
 def _send(to_email: str, subject: str, body: str) -> None:
     if not settings.SMTP_HOST:
         logger.warning(
-            "SMTP no configurado (SMTP_HOST vacío): no se envía el email a %s. "
-            "Contenido:\n%s",
+            "SMTP no configurado (SMTP_HOST vacío): no se envía el email a %s. Contenido:\n%s",
             to_email,
             body,
         )

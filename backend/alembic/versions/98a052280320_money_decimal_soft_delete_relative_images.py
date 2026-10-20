@@ -12,17 +12,18 @@ Revises: e236eb6c8b41
 Create Date: 2026-10-19 21:16:53.544606
 
 """
-from typing import Sequence, Union
 
-from alembic import op
+from collections.abc import Sequence
+
 import sqlalchemy as sa
 
+from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = '98a052280320'
-down_revision: Union[str, Sequence[str], None] = 'e236eb6c8b41'
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+revision: str = "98a052280320"
+down_revision: str | Sequence[str] | None = "e236eb6c8b41"
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 MONEY_COLUMNS = [

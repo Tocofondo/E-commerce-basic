@@ -40,6 +40,8 @@ def _looks_like(content: bytes, content_type: str) -> bool:
     if content_type == "image/webp":
         return content[:4] == b"RIFF" and content[8:12] == b"WEBP"
     return False
+
+
 # Límite a nivel aplicación (no hay CHECK/trigger en la DB): se valida acá
 # antes de escribir nada a disco.
 MAX_IMAGES_PER_PRODUCT = 4
@@ -152,9 +154,7 @@ def _validate_image(file: UploadFile) -> tuple[bytes, str]:
     return content, ext
 
 
-def add_product_images(
-    db: Session, product_id: int, files: list[UploadFile]
-) -> list[ProductImage]:
+def add_product_images(db: Session, product_id: int, files: list[UploadFile]) -> list[ProductImage]:
     """Valida (tipo + tamaño) y guarda en disco cada archivo, y crea su fila
     en `product_images`. Todo o nada: si un archivo no pasa la validación no
     se persiste ni se escribe ningún archivo de esta tanda.

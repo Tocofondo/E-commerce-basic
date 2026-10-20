@@ -9,8 +9,8 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.security import decode_access_token, password_fingerprint
 from app.core.db.session import get_db
+from app.core.security import decode_access_token, password_fingerprint
 from app.modules.auth.models import User
 from app.modules.auth.schemas import TokenPayload
 from app.modules.auth.service import get_user_by_email

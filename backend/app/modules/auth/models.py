@@ -20,9 +20,7 @@ class User(Base):
         CheckConstraint("email = lower(email)", name="ck_users_email_lowercase"),
     )
 
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
-    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     phone: Mapped[str] = mapped_column(String(30), nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)

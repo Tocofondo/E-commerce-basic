@@ -5,7 +5,7 @@ para que cualquier módulo (no solo auth) pueda usarlo.
 """
 
 import hashlib
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import bcrypt
@@ -27,9 +27,7 @@ def hash_password(plain_password: str) -> str:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     try:
-        return bcrypt.checkpw(
-            plain_password.encode("utf-8"), hashed_password.encode("utf-8")
-        )
+        return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
     except ValueError:
         # Hash corrupto/formato inválido: nunca autenticar.
         return False
@@ -50,7 +48,7 @@ def password_fingerprint(hashed_password: str) -> str:
 def create_access_token(
     subject: str, fingerprint: str, expires_delta: timedelta | None = None
 ) -> str:
-    expire = datetime.now(timezone.utc) + (
+    expire = datetime.now(UTC) + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     to_encode: dict[str, Any] = {"sub": subject, "exp": expire, "pwd": fingerprint}
@@ -79,7 +77,7 @@ PASSWORD_RESET_EXPIRE_MINUTES = 30
 
 
 def create_password_reset_token(subject: str, fingerprint: str) -> str:
-    expire = datetime.now(timezone.utc) + timedelta(minutes=PASSWORD_RESET_EXPIRE_MINUTES)
+    expire = datetime.now(UTC) + timedelta(minutes=PASSWORD_RESET_EXPIRE_MINUTES)
     to_encode: dict[str, Any] = {
         "sub": subject,
         "exp": expire,

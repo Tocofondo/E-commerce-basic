@@ -65,9 +65,7 @@ class InsufficientStockError(Exception):
         self.available = available
         # El mensaje llega tal cual al cliente (detail del 400): con el nombre
         # sabe qué ajustar en el carrito.
-        super().__init__(
-            f"No hay stock suficiente de \"{product_name}\" (disponibles: {available})"
-        )
+        super().__init__(f'No hay stock suficiente de "{product_name}" (disponibles: {available})')
 
 
 def create_order(db: Session, user_id: uuid.UUID, order_in: OrderCreate) -> Order:
@@ -143,7 +141,9 @@ def list_all_orders(db: Session) -> list[Order]:
     # Items en una sola query extra (selectinload), no una por pedido.
     return list(
         db.scalars(
-            select(Order).options(selectinload(Order.items), selectinload(Order.user)).order_by(Order.created_at.desc())
+            select(Order)
+            .options(selectinload(Order.items), selectinload(Order.user))
+            .order_by(Order.created_at.desc())
         )
     )
 

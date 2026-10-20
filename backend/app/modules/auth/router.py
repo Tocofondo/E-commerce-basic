@@ -7,6 +7,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.core import rate_limit
+from app.core.db.session import get_db
 from app.core.email import send_password_reset_email
 from app.core.security import (
     create_access_token,
@@ -15,7 +16,6 @@ from app.core.security import (
     password_fingerprint,
     verify_password,
 )
-from app.core.db.session import get_db
 from app.modules.auth.dependencies import get_current_active_user
 from app.modules.auth.models import User
 from app.modules.auth.schemas import (
@@ -161,7 +161,9 @@ def forgot_password(
     else:
         logger.info("Forgot-password para email no registrado: %s", body.email)
     # Mismo mensaje exista o no el email: no se revela si una cuenta existe.
-    return {"detail": "Si el email está registrado, te enviamos un link para restablecer tu contraseña."}
+    return {
+        "detail": "Si el email está registrado, te enviamos un link para restablecer tu contraseña."
+    }
 
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
