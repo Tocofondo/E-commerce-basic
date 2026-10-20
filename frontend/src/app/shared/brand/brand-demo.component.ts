@@ -1,6 +1,5 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { VyLogoComponent } from './vy-logo.component';
-import { VyYapaComponent } from './vy-yapa.component';
 import { VyProductCardComponent, VyProducto } from './vy-product-card.component';
 
 /**
@@ -11,7 +10,7 @@ import { VyProductCardComponent, VyProducto } from './vy-product-card.component'
 @Component({
   selector: 'vy-brand-demo',
   standalone: true,
-  imports: [VyLogoComponent, VyYapaComponent, VyProductCardComponent],
+  imports: [VyLogoComponent, VyProductCardComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'vy-oscuro' },
   template: `
@@ -27,7 +26,7 @@ import { VyProductCardComponent, VyProducto } from './vy-product-card.component'
     </header>
 
     <section class="portada vy-container">
-      <vy-yapa [tamano]="72" />
+      <vy-logo variante="sello" alto="96px" />
       <h1 class="titulo">
         <span class="vy-marker">Bueno, barato</span><br />
         <span class="vy-heavy">y con yapa</span>
@@ -55,7 +54,7 @@ import { VyProductCardComponent, VyProducto } from './vy-product-card.component'
 
     <footer class="pie">
       <div class="vy-container pie-in">
-        <vy-logo variante="icono" alto="40px" />
+        <vy-logo variante="sello-simple" alto="48px" />
         <span class="vy-muted">Rosario, Santa Fe</span>
       </div>
     </footer>

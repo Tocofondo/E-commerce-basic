@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from '@angular/core';
-import { VyYapaComponent } from './vy-yapa.component';
+import { VyLogoComponent } from './vy-logo.component';
 
 export interface VyProducto {
   id: string;
@@ -25,7 +25,7 @@ const pesos = new Intl.NumberFormat('es-AR', {
 @Component({
   selector: 'vy-product-card',
   standalone: true,
-  imports: [VyYapaComponent],
+  imports: [VyLogoComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <article class="vy-card tarjeta">
@@ -45,7 +45,10 @@ const pesos = new Intl.NumberFormat('es-AR', {
           <span class="vy-precio">{{ formatear(producto.precio) }}</span>
         </div>
         @if (producto.conYapa) {
-          <vy-yapa [tamano]="40" [rayitas]="false" texto="Con yapa" />
+          <div class="yapa">
+            <vy-logo variante="sello-simple" alto="40px" />
+            <span class="vy-marker">Con yapa</span>
+          </div>
         }
       </div>
       <button type="button" class="vy-btn" (click)="agregar.emit(producto)">Agregar al carrito</button>
@@ -73,6 +76,8 @@ const pesos = new Intl.NumberFormat('es-AR', {
       }
       .texto { display: flex; flex-direction: column; gap: var(--vy-space-1); min-width: 0; }
       .nombre { font-size: var(--vy-fs-lg); line-height: 1.15; }
+      .yapa { display: flex; flex-direction: column; align-items: center; gap: 4px; flex: none; }
+      .yapa .vy-marker { font-size: var(--vy-fs-sm); line-height: 1; }
       .vy-btn { margin: 0 var(--vy-space-4) var(--vy-space-4); }
     `,
   ],

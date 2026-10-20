@@ -2,8 +2,8 @@
 // Tailwind v4 no pasa por Sass, por eso esto es una entrada aparte de styles.css
 // (ver "styles" en angular.json).
 //
-// No se carga `_base.scss` global: pinta todo el sitio de negro con texto blanco y
-// la tienda actual es clara. Lo mismo queda disponible por sección con `.vy-oscuro`.
+// No se carga `_base.scss` global: pintaría también el admin, que es claro. La
+// tienda se pinta de negro con `.vy-oscuro` + `.vy-tienda` (ver más abajo).
 @use 'styles/vaconyapa/tokens';
 @use 'styles/vaconyapa/fonts';
 @use 'styles/vaconyapa/components';
@@ -36,5 +36,145 @@
   ::selection {
     background: var(--vy-verde);
     color: var(--vy-negro);
+  }
+}
+
+// ---------- Tienda oscura ----------
+// Envuelve todo lo que ve el cliente (StoreLayout y las pantallas de login /
+// registro). Re-mapea los tokens de Tailwind que usan el design-system y las
+// páginas (neutral-*, surface, border, brand-*) a la paleta oscura de la marca,
+// así ds-input, ds-spinner y las clases text-neutral-* ya existentes se leen
+// bien sobre el negro sin tocar el design-system. El admin queda claro.
+//
+// Se redefinen las --color-* (las que leen las utilidades de Tailwind v4) y no
+// las --brand-*/--neutral-* de palette.css: esas ya se resolvieron en :root.
+.vy-tienda {
+  --color-neutral-50: #161916;
+  --color-neutral-100: #1f231f;
+  --color-neutral-200: #2c312c;
+  --color-neutral-300: #3a403a;
+  --color-neutral-400: #7c857c;
+  --color-neutral-500: #{tokens.$vy-texto-tenue};
+  --color-neutral-600: #{tokens.$vy-texto-suave};
+  --color-neutral-700: #dde3dd;
+  --color-neutral-800: #f2f5f2;
+  --color-neutral-900: #{tokens.$vy-blanco};
+
+  --color-brand-50: #12261a;
+  --color-brand-100: #173322;
+  --color-brand-200: #{tokens.$vy-borde};
+  --color-brand-300: #1f6b3d;
+  --color-brand-400: #{tokens.$vy-verde};
+  --color-brand-500: #{tokens.$vy-verde};
+  --color-brand-600: #{tokens.$vy-verde};
+  --color-brand-700: #{tokens.$vy-verde-hover};
+  --color-brand-800: #8af5b6;
+
+  --color-surface: #{tokens.$vy-carbon};
+  --color-surface-raised: #{tokens.$vy-negro};
+  --color-border: #{tokens.$vy-borde};
+
+  --color-error: #{tokens.$vy-error};
+  --color-error-light: #3a1a17;
+  --color-success: #{tokens.$vy-verde};
+  --color-success-light: #12261a;
+  --color-warning: #f5b83d;
+  --color-warning-light: #332a10;
+
+  // Botón compacto (barra, cantidades, acciones secundarias).
+  .vy-btn--chico {
+    min-height: 40px;
+    padding: 0 var(--vy-space-4);
+    font-size: var(--vy-fs-sm);
+  }
+
+  .vy-btn--bloque {
+    width: 100%;
+  }
+
+  // Ruedita dentro de un .vy-btn mientras carga: <span class="vy-btn-cargando"></span>
+  .vy-btn-cargando {
+    width: 1em;
+    height: 1em;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: vy-girar 0.7s linear infinite;
+  }
+
+  // ds-input con el look de .vy-input del kit (fondo negro, borde más marcado),
+  // para que el campo se despegue de la tarjeta carbón. CSS sin capa: le gana a
+  // las utilidades de Tailwind, así que se repiten acá el foco y el error.
+  ds-input input {
+    min-height: 44px;
+    background: var(--vy-negro);
+    border-color: #3a403a;
+    border-radius: var(--vy-radius-md);
+
+    &:focus {
+      border-color: var(--vy-verde);
+    }
+
+    &.border-error {
+      border-color: var(--vy-error);
+    }
+  }
+
+  // Angular descarta el espacio entre dos <span> (preserveWhitespaces: false),
+  // así que "<span marker>Lo más</span> <span heavy>pedido</span>" saldría pegado.
+  .vy-marker + .vy-heavy {
+    margin-inline-start: 0.28em;
+  }
+
+  // Título de página: marcador + palabra en verde pesado (regla de la marca).
+  .vy-titulo {
+    font-size: var(--vy-fs-xl);
+    line-height: 1.05;
+
+    @media (min-width: 640px) {
+      font-size: var(--vy-fs-2xl);
+    }
+  }
+
+  // Selector de cantidad (+ / -).
+  .vy-cantidad {
+    display: inline-flex;
+    align-items: center;
+    border: 1.5px solid var(--vy-borde);
+    border-radius: var(--vy-radius-pill);
+    background: var(--vy-negro);
+
+    button {
+      width: 40px;
+      height: 40px;
+      border-radius: var(--vy-radius-pill);
+      color: var(--vy-blanco);
+      font-weight: 800;
+      font-size: var(--vy-fs-lg);
+      line-height: 1;
+      cursor: pointer;
+
+      &:hover:not(:disabled) {
+        color: var(--vy-verde);
+      }
+
+      &:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+    }
+
+    span {
+      min-width: 2ch;
+      text-align: center;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+    }
+  }
+}
+
+@keyframes vy-girar {
+  to {
+    transform: rotate(360deg);
   }
 }

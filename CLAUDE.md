@@ -145,7 +145,9 @@ src/app/
   design-system/  Reusable UI components (ds-button, ds-card-product, ...).
                    Do not modify — it's the app's visual foundation. Rebrand
                    colors via src/theme/palette.css (--brand-* CSS variables).
-  shared/brand/   VACONYAPA brand kit components (vy-logo, vy-yapa,
+  shared/brand/   VACONYAPA brand kit components (vy-logo with
+                   `sello`/`sello-simple` variants for the VCY seal — the old
+                   circle-with-a-plus `vy-yapa` is gone, the brand forbids it —
                    vy-product-card, brand-demo at /marca). Global `vy-*`
                    classes + `--vy-*` tokens come from src/styles/vaconyapa/,
                    loaded through src/brand.scss (separate `styles` entry in

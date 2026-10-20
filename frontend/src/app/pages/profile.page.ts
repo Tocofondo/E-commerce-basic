@@ -1,34 +1,40 @@
 import { Component, inject } from '@angular/core';
-import { Router } from '@angular/router';
-import { DsButton } from '../design-system/index';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../core/services/auth.service';
 
 @Component({
   selector: 'app-profile-page',
   standalone: true,
-  imports: [DsButton],
+  imports: [RouterLink],
   template: `
-    <main class="max-w-md mx-auto px-4 sm:px-6 py-10 flex flex-col gap-6">
-      <h1 class="text-2xl font-bold text-neutral-800">Perfil</h1>
+    <main class="vy-container py-10">
+      <div class="max-w-md mx-auto flex flex-col gap-6">
+        <h1 class="vy-titulo"><span class="vy-marker">Tu</span> <span class="vy-heavy">perfil</span></h1>
 
-      @if (auth.currentUser(); as user) {
-        <div class="bg-surface border border-border rounded-xl p-6 flex flex-col gap-3">
-          <div>
-            <p class="text-xs text-neutral-500">Nombre</p>
-            <p class="text-neutral-800 font-medium">{{ user.name }}</p>
+        @if (auth.currentUser(); as user) {
+          <div class="vy-card p-6 flex flex-col gap-4">
+            <div>
+              <p class="vy-label">Nombre</p>
+              <p class="font-bold">{{ user.name }}</p>
+            </div>
+            <div>
+              <p class="vy-label">Email</p>
+              <p class="font-bold break-all">{{ user.email }}</p>
+            </div>
+            @if (user.phone) {
+              <div>
+                <p class="vy-label">Teléfono</p>
+                <p class="font-bold">{{ user.phone }}</p>
+              </div>
+            }
           </div>
-          <div>
-            <p class="text-xs text-neutral-500">Email</p>
-            <p class="text-neutral-800 font-medium">{{ user.email }}</p>
-          </div>
-          <div>
-            <p class="text-xs text-neutral-500">Rol</p>
-            <p class="text-neutral-800 font-medium capitalize">{{ user.role }}</p>
-          </div>
-        </div>
 
-        <ds-button variant="ghost" (clicked)="logout()">Cerrar sesión</ds-button>
-      }
+          <div class="flex flex-wrap gap-3">
+            <a routerLink="/mis-pedidos" class="vy-btn">Mis pedidos</a>
+            <button type="button" class="vy-btn vy-btn--secundario" (click)="logout()">Cerrar sesión</button>
+          </div>
+        }
+      </div>
     </main>
   `,
 })

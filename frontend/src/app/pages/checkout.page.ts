@@ -1,8 +1,7 @@
 import { Component, inject, signal } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { DsButton, DsInput, DsPrice } from '../design-system/index';
+import { DsInput } from '../design-system/index';
 import { CartService } from '../core/services/cart.service';
 import { OrderService } from '../core/services/order.service';
 import { AuthService } from '../core/services/auth.service';
@@ -10,80 +9,92 @@ import { WhatsappService } from '../core/services/whatsapp.service';
 import { ProductService } from '../core/services/product.service';
 import { apiErrorMessage } from '../core/http-error';
 import { Order, ShippingInfo } from '../core/models/order.model';
+import { VyLogoComponent } from '../shared/brand/vy-logo.component';
+import { PesosPipe } from '../shared/store/pesos.pipe';
 
 @Component({
   selector: 'app-checkout-page',
   standalone: true,
-  imports: [FormsModule, RouterLink, DecimalPipe, DsButton, DsInput, DsPrice],
+  imports: [FormsModule, RouterLink, DsInput, VyLogoComponent, PesosPipe],
   template: `
-    <main class="max-w-3xl mx-auto px-4 sm:px-6 py-10 flex flex-col gap-6">
-      <h1 class="text-2xl font-bold text-neutral-800">Checkout</h1>
-
-      @if (placedOrder(); as order) {
-        <div class="bg-surface border border-border rounded-xl p-6 flex flex-col items-center gap-4 text-center">
-          <p class="text-success font-medium">¡Pedido #{{ order.id }} confirmado!</p>
-          <p class="text-neutral-600 text-sm">
-            Enviá el pedido por WhatsApp para que el admin lo reciba al instante.
-          </p>
-          <a [href]="whatsappLink(order)" target="_blank" rel="noopener">
-            <ds-button variant="primary">Enviar pedido por WhatsApp</ds-button>
-          </a>
-          <a routerLink="/mis-pedidos" class="text-sm text-brand-600 hover:underline">Ver mis pedidos</a>
-        </div>
-      } @else if (cart.items().length === 0) {
-        <div class="text-center py-16 flex flex-col items-center gap-4">
-          <p class="text-neutral-500">Tu carrito está vacío.</p>
-          <a routerLink="/productos">
-            <ds-button variant="primary">Ver productos</ds-button>
-          </a>
-        </div>
-      } @else {
-        <div class="grid sm:grid-cols-2 gap-8">
-          <form class="flex flex-col gap-4" (ngSubmit)="onSubmit()">
-            <h2 class="text-lg font-semibold text-neutral-800">Datos de envío</h2>
-            <ds-input label="Nombre completo" [required]="true" [(ngModel)]="shipping.fullName" name="fullName" />
-            <ds-input label="Teléfono" [required]="true" [(ngModel)]="shipping.phone" name="phone" />
-            <ds-input label="Dirección" [required]="true" [(ngModel)]="shipping.address" name="address" />
-            <ds-input label="Ciudad" [required]="true" [(ngModel)]="shipping.city" name="city" />
-            <ds-input label="Código postal" [required]="true" [(ngModel)]="shipping.postalCode" name="postalCode" />
-
-            @if (error()) {
-              <p class="text-sm text-error">{{ error() }}</p>
-            }
-
-            @if (cart.overStock().length) {
-              <p class="text-sm text-error">
-                Algunos productos ya no tienen stock suficiente.
-                <a routerLink="/carrito" class="underline">Ajustá el carrito</a> para continuar.
-              </p>
-            }
-
-            <ds-button
-              variant="primary"
-              type="submit"
-              [fullWidth]="true"
-              [loading]="loading()"
-              [disabled]="cart.overStock().length > 0"
-            >
-              Confirmar pedido
-            </ds-button>
-          </form>
-
-          <div class="flex flex-col gap-3">
-            <h2 class="text-lg font-semibold text-neutral-800">Resumen</h2>
-            @for (item of cart.items(); track item.product.id) {
-              <div class="flex justify-between text-sm text-neutral-600">
-                <span>{{ item.qty }}x {{ item.product.name }}</span>
-                <span>{{ item.product.price * item.qty | number: '1.2-2' }}</span>
-              </div>
-            }
-            <div class="flex justify-between items-center border-t border-border pt-3 mt-2">
-              <span class="font-medium text-neutral-800">Total</span>
-              <ds-price [current]="cart.total()" size="lg" />
-            </div>
+    <main class="vy-container py-10">
+      <div class="max-w-4xl mx-auto flex flex-col gap-6">
+        @if (placedOrder(); as order) {
+          <div class="vy-card p-6 sm:p-10 flex flex-col items-center gap-5 text-center">
+            <vy-logo variante="sello" alto="72px" />
+            <h1 class="vy-titulo">
+              <span class="vy-marker">Pedido #{{ order.id }}</span>
+              <span class="vy-heavy">confirmado</span>
+            </h1>
+            <p class="vy-muted max-w-md">
+              Mandanos el pedido por WhatsApp así nos llega al toque y coordinamos la entrega.
+            </p>
+            <a [href]="whatsappLink(order)" target="_blank" rel="noopener" class="vy-btn vy-btn--marcador">
+              Enviar pedido por WhatsApp
+            </a>
+            <a routerLink="/mis-pedidos" class="text-sm font-bold">Ver mis pedidos</a>
           </div>
-        </div>
-      }
+        } @else if (cart.items().length === 0) {
+          <h1 class="vy-titulo"><span class="vy-marker">Finalizar</span> <span class="vy-heavy">pedido</span></h1>
+          <div class="text-center py-16 flex flex-col items-center gap-5">
+            <vy-logo variante="sello" alto="64px" />
+            <p class="vy-muted">Tu carrito está vacío.</p>
+            <a routerLink="/productos" class="vy-btn">Ver productos</a>
+          </div>
+        } @else {
+          <h1 class="vy-titulo"><span class="vy-marker">Finalizar</span> <span class="vy-heavy">pedido</span></h1>
+          <div class="grid md:grid-cols-[3fr_2fr] gap-6 items-start">
+            <form class="vy-card p-5 sm:p-6 flex flex-col gap-4" (ngSubmit)="onSubmit()">
+              <h2 class="vy-marker text-xl">Datos de envío</h2>
+              <ds-input label="Nombre completo" [required]="true" [(ngModel)]="shipping.fullName" name="fullName" />
+              <ds-input label="Teléfono" type="tel" [required]="true" [(ngModel)]="shipping.phone" name="phone" />
+              <ds-input label="Dirección" [required]="true" [(ngModel)]="shipping.address" name="address" />
+              <div class="grid grid-cols-2 gap-4">
+                <ds-input label="Ciudad" [required]="true" [(ngModel)]="shipping.city" name="city" />
+                <ds-input label="Código postal" [required]="true" [(ngModel)]="shipping.postalCode" name="postalCode" />
+              </div>
+
+              @if (error()) {
+                <p class="text-sm text-error">{{ error() }}</p>
+              }
+
+              @if (cart.overStock().length) {
+                <p class="text-sm text-error">
+                  Algunos productos ya no tienen stock suficiente.
+                  <a routerLink="/carrito" class="underline">Ajustá el carrito</a> para continuar.
+                </p>
+              }
+
+              <button
+                type="submit"
+                class="vy-btn vy-btn--bloque"
+                [disabled]="loading() || cart.overStock().length > 0"
+              >
+                @if (loading()) { <span class="vy-btn-cargando"></span> }
+                Confirmar pedido
+              </button>
+            </form>
+
+            <aside class="vy-card p-5 sm:p-6 flex flex-col gap-3">
+              <h2 class="vy-marker text-xl">Resumen</h2>
+              @for (item of cart.items(); track item.product.id) {
+                <div class="flex justify-between gap-3 text-sm">
+                  <span class="vy-muted">{{ item.qty }}x {{ item.product.name }}</span>
+                  <span class="font-bold whitespace-nowrap">{{ item.product.price * item.qty | pesos }}</span>
+                </div>
+              }
+              <div class="flex items-center gap-3 text-sm">
+                <vy-logo class="shrink-0" variante="sello-simple" alto="36px" />
+                <span class="vy-muted">1x Yapa (regalo)</span>
+              </div>
+              <div class="flex justify-between items-center border-t border-border pt-4 mt-2">
+                <span class="vy-label">Total</span>
+                <span class="vy-precio">{{ cart.total() | pesos }}</span>
+              </div>
+            </aside>
+          </div>
+        }
+      </div>
     </main>
   `,
 })

@@ -1,64 +1,69 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
-import { DsButton, DsCardProduct, DsInput, DsSpinner } from '../design-system/index';
+import { DsSpinner } from '../design-system/index';
 import { ProductService } from '../core/services/product.service';
 import { CartService } from '../core/services/cart.service';
+import { Product } from '../core/models/product.model';
+import { StoreProductCard } from '../shared/store/store-product-card';
 
 @Component({
   selector: 'app-catalog-page',
   standalone: true,
-  imports: [FormsModule, RouterLink, DsButton, DsCardProduct, DsInput, DsSpinner],
+  imports: [FormsModule, DsSpinner, StoreProductCard],
   template: `
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 py-10 flex flex-col gap-6">
-      <h1 class="text-2xl font-bold text-neutral-800">Productos</h1>
+    <main class="vy-container py-10 flex flex-col gap-6">
+      <h1 class="vy-titulo"><span class="vy-marker">Todos los</span> <span class="vy-heavy">productos</span></h1>
 
-      <div class="flex flex-col sm:flex-row gap-4 sm:items-end">
-        <div class="w-full sm:max-w-sm">
-          <ds-input
-            label="Buscar"
+      <div class="flex flex-col gap-4">
+        <label class="w-full sm:max-w-sm">
+          <span class="sr-only">Buscar</span>
+          <input
+            class="vy-input"
             type="search"
-            placeholder="Auriculares, zapatillas..."
-            prefixIcon="🔍"
+            placeholder="Buscá: auriculares, botella..."
             [(ngModel)]="search"
             (ngModelChange)="searchSignal.set($event)"
           />
-        </div>
+        </label>
 
-        <div class="flex flex-wrap gap-2">
-          @for (cat of categories(); track cat) {
+        @if (categories().length > 1) {
+          <div class="flex flex-wrap gap-2" role="group" aria-label="Categorías">
             <button
-              (click)="selectedCategory.set(cat === selectedCategory() ? '' : cat)"
-              [class]="cat === selectedCategory()
-                ? 'px-3 py-1.5 rounded-lg text-sm font-medium bg-brand-600 text-white'
-                : 'px-3 py-1.5 rounded-lg text-sm font-medium bg-neutral-100 text-neutral-600 hover:bg-neutral-200'"
-            >
-              {{ cat }}
-            </button>
-          }
-        </div>
+              type="button"
+              class="vy-chip cursor-pointer"
+              [class.vy-chip--contorno]="selectedCategory() !== ''"
+              [attr.aria-pressed]="selectedCategory() === ''"
+              (click)="selectedCategory.set('')"
+            >Todo</button>
+            @for (cat of categories(); track cat) {
+              <button
+                type="button"
+                class="vy-chip cursor-pointer"
+                [class.vy-chip--contorno]="cat !== selectedCategory()"
+                [attr.aria-pressed]="cat === selectedCategory()"
+                (click)="selectedCategory.set(cat === selectedCategory() ? '' : cat)"
+              >{{ cat }}</button>
+            }
+          </div>
+        }
       </div>
 
       @if (productsSrv.error() && !productsSrv.loaded()) {
         <div class="py-10 flex flex-col items-center gap-4 text-center">
-          <p class="text-neutral-500 text-sm">{{ productsSrv.error() }}</p>
-          <ds-button variant="primary" [loading]="productsSrv.loading()" (clicked)="productsSrv.refresh()">
+          <p class="vy-muted">{{ productsSrv.error() }}</p>
+          <button type="button" class="vy-btn" [disabled]="productsSrv.loading()" (click)="productsSrv.refresh()">
+            @if (productsSrv.loading()) { <span class="vy-btn-cargando"></span> }
             Reintentar
-          </ds-button>
+          </button>
         </div>
       } @else if (!productsSrv.loaded()) {
         <div class="py-16 flex justify-center"><ds-spinner size="lg" /></div>
       } @else if (filtered().length === 0) {
-        <p class="text-neutral-500 text-sm py-10 text-center">No se encontraron productos.</p>
+        <p class="vy-muted py-10 text-center">No encontramos productos con esa búsqueda.</p>
       } @else {
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
           @for (product of filtered(); track product.id) {
-            <div class="flex flex-col gap-2">
-              <ds-card-product [product]="product" (addToCart)="onAddToCart($event)" />
-              <a [routerLink]="['/productos', product.id]" class="text-xs text-brand-600 hover:underline text-center">
-                Ver detalle
-              </a>
-            </div>
+            <app-store-product-card [product]="product" (addToCart)="onAddToCart($event)" />
           }
         </div>
       }
@@ -68,7 +73,6 @@ import { CartService } from '../core/services/cart.service';
 export class CatalogPage {
   productsSrv = inject(ProductService);
   private cart = inject(CartService);
-  router = inject(Router);
 
   search = '';
   searchSignal = signal('');
@@ -89,8 +93,7 @@ export class CatalogPage {
     });
   });
 
-  onAddToCart(id: string | number): void {
-    const product = this.productsSrv.getById(Number(id));
-    if (product) this.cart.add(product);
+  onAddToCart(product: Product): void {
+    this.cart.add(product);
   }
 }

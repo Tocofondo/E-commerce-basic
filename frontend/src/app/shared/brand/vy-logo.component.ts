@@ -1,15 +1,16 @@
 import { ChangeDetectionStrategy, Component, Input } from '@angular/core';
 
-export type VyLogoVariante = 'principal' | 'horizontal' | 'icono';
+export type VyLogoVariante = 'principal' | 'horizontal' | 'sello' | 'sello-simple';
 export type VyLogoFondo = 'oscuro' | 'claro';
 
 /**
  * Logo de VACONYAPA.
  *
- * <vy-logo />                                        horizontal, para fondo oscuro, 40px de alto
- * <vy-logo variante="principal" alto="160px" />      con el círculo de la yapa arriba
- * <vy-logo variante="icono" alto="32px" />           solo el círculo con el +
- * <vy-logo fondo="claro" />                          para secciones con fondo blanco
+ * <vy-logo />                                         horizontal, para fondo oscuro, 40px de alto
+ * <vy-logo variante="principal" alto="160px" />       sello VCY arriba, nombre y subrayado
+ * <vy-logo variante="sello" alto="64px" />            sello VCY con las rayitas
+ * <vy-logo variante="sello-simple" alto="40px" />     sello VCY sin rayitas (para tamaños chicos)
+ * <vy-logo fondo="claro" />                           para secciones con fondo blanco
  *
  * Los SVG están en public/brand/logos.
  */
@@ -32,10 +33,6 @@ export class VyLogoComponent {
 
   get src(): string {
     // Relativa al <base href>, para que ande bajo un sub-path (GitHub Pages).
-    const base = 'brand/logos/vaconyapa';
-    if (this.variante === 'icono') {
-      return `${base}-icono-${this.fondo === 'oscuro' ? 'verde' : 'verde-oscuro'}.svg`;
-    }
-    return `${base}-${this.variante}-fondo-${this.fondo}.svg`;
+    return `brand/logos/vaconyapa-${this.variante}-fondo-${this.fondo}.svg`;
   }
 }
