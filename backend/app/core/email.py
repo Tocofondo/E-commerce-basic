@@ -113,12 +113,15 @@ def build_withdrawal_emails(request: "WithdrawalRequest") -> list[tuple[str, str
         f"Teléfono: {request.phone}\n"
         f"Motivo: {request.reason or '(sin especificar)'}"
     )
+    # Al cliente solo el código, sin los textos del form: el alta es pública
+    # y si no, cualquiera podría usarla para mandar su texto a una casilla
+    # ajena desde nuestro SMTP. El detalle completo va solo al admin.
     emails = [
         (
             request.email,
             f"Recibimos tu pedido de arrepentimiento {request.code} - {settings.STORE_NAME}",
             f"Recibimos tu pedido para revocar la compra. Guardá este código: es tu "
-            f"constancia del trámite.\n\n{details}\n\n"
+            f"constancia del trámite.\n\nCódigo de trámite: {request.code}\n\n"
             "Te vamos a contactar para coordinar la devolución.",
         )
     ]
