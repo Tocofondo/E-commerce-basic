@@ -78,6 +78,8 @@ export class OrderService {
   loading = signal(false);
   /** Mensaje del último error al cargar pedidos ('' si salió bien). */
   error = signal('');
+  /** Id del último `load()`: una respuesta de un pedido anterior se descarta. */
+  private loadSeq = 0;
 
   /** Crea el pedido para el usuario autenticado (el backend lo infiere del token). */
   async place(items: CartItem[], shipping: ShippingInfo): Promise<Order> {
@@ -106,18 +108,22 @@ export class OrderService {
   /** Nunca rechaza: si falla deja el mensaje en `error`. Vacía la lista
    * antes de pedir, porque `orders` se comparte entre "mis pedidos" y el
    * admin: sin esto, un admin que pasa de /admin/pedidos a /mis-pedidos
-   * veía por un momento los pedidos de todos. */
+   * veía por un momento los pedidos de todos. Por lo mismo, si mientras
+   * tanto arrancó otro `load()`, la respuesta de este se descarta. */
   private async load(url: string): Promise<void> {
+    const seq = ++this.loadSeq;
     this.orders.set([]);
     this.loading.set(true);
     this.error.set('');
     try {
       const res = await firstValueFrom(this.http.get<OrderResponse[]>(url));
-      this.orders.set(res.map(toOrder));
+      if (seq === this.loadSeq) this.orders.set(res.map(toOrder));
     } catch (err) {
-      this.error.set(apiErrorMessage(err, 'No se pudieron cargar los pedidos.'));
+      if (seq === this.loadSeq) {
+        this.error.set(apiErrorMessage(err, 'No se pudieron cargar los pedidos.'));
+      }
     } finally {
-      this.loading.set(false);
+      if (seq === this.loadSeq) this.loading.set(false);
     }
   }
 

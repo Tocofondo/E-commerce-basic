@@ -6,6 +6,7 @@ otro módulo sin pasar por HTTP.
 import logging
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password, verify_password
@@ -13,6 +14,10 @@ from app.modules.auth.models import User
 from app.modules.auth.schemas import UserCreate, UserRole, UserUpdate, normalize_email
 
 logger = logging.getLogger(__name__)
+
+# Hash de una contraseña cualquiera, para gastar lo mismo que un login real
+# cuando el email no existe (ver `authenticate_user`).
+_DUMMY_HASH = hash_password("timing-equalizer")
 
 
 class EmailAlreadyRegisteredError(Exception):
@@ -42,7 +47,13 @@ def create_user(db: Session, user_in: UserCreate, role: UserRole = "customer") -
         role=role,
     )
     db.add(user)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        # Dos registros simultáneos con el mismo email pasan los dos el
+        # chequeo de arriba; el UNIQUE de la DB frena al segundo.
+        db.rollback()
+        raise EmailAlreadyRegisteredError(user_in.email) from exc
     db.refresh(user)
     logger.info("Usuario creado: %s (role=%s)", user.email, user.role)
     return user
@@ -50,7 +61,12 @@ def create_user(db: Session, user_in: UserCreate, role: UserRole = "customer") -
 
 def authenticate_user(db: Session, email: str, password: str) -> User | None:
     user = get_user_by_email(db, email)
-    if user is None or not verify_password(password, user.hashed_password):
+    if user is None:
+        # Mismo costo (bcrypt) exista o no la cuenta: si no, el tiempo de
+        # respuesta delata qué emails están registrados.
+        verify_password(password, _DUMMY_HASH)
+        return None
+    if not verify_password(password, user.hashed_password):
         return None
     if not user.is_active:
         return None

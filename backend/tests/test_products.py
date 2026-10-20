@@ -123,3 +123,16 @@ def test_deleting_image_used_by_an_order_keeps_the_file(client, admin, customer,
 
     order = client.get(f"{API}/orders/me", headers=auth_headers(customer)).json()[0]
     assert order["items"][0]["productImage"] == image["url"]
+
+
+def test_upload_after_delete_gets_a_free_position(client, admin, make_product):
+    product = make_product()
+    first, _second = (_upload(client, admin, product.id).json()[0] for _ in range(2))
+    client.delete(f"{API}/products/{product.id}/images/{first['id']}", headers=auth_headers(admin))
+
+    new = _upload(client, admin, product.id).json()[0]
+
+    images = client.get(f"{API}/products/{product.id}").json()["images"]
+    positions = [img["position"] for img in images]
+    assert len(set(positions)) == len(positions) == 2
+    assert new["position"] == max(positions)

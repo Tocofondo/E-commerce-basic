@@ -37,6 +37,9 @@ export class ProductService {
   loaded = signal(false);
   /** Mensaje del último error al cargar el catálogo ('' si salió bien). */
   error = signal('');
+  /** Id del último `refresh()`: una respuesta de un pedido anterior (ej. el
+   * catálogo público que llega después del de admin) se descarta. */
+  private refreshSeq = 0;
 
   constructor() {
     // Carga inicial y recarga al entrar/salir como admin (cambia el endpoint).
@@ -49,17 +52,20 @@ export class ProductService {
   /** Vuelve a pedir el catálogo completo al backend. Nunca rechaza: si
    * falla, deja el mensaje en `error` para que la vista ofrezca reintentar. */
   async refresh(): Promise<void> {
+    const seq = ++this.refreshSeq;
     this.loading.set(true);
     this.error.set('');
     try {
       const url = this.auth.isAdmin() ? `${API_BASE_URL}/products/all` : `${API_BASE_URL}/products`;
       const list = await firstValueFrom(this.http.get<Product[]>(url));
+      if (seq !== this.refreshSeq) return;
       this.allProducts.set(list.map(withImageFallback));
       this.loaded.set(true);
     } catch (err) {
+      if (seq !== this.refreshSeq) return;
       this.error.set(apiErrorMessage(err, 'No se pudo cargar el catálogo.'));
     } finally {
-      this.loading.set(false);
+      if (seq === this.refreshSeq) this.loading.set(false);
     }
   }
 

@@ -275,6 +275,20 @@ export class AdminProductFormPage implements OnDestroy {
     const originalPrice = this.originalPriceStr ? Number(this.originalPriceStr) : null;
     const stock = Number(this.stockStr);
 
+    // `Number('')` es 0: sin esto, borrar el precio guardaba el producto gratis.
+    if (!String(this.priceStr).trim() || !Number.isFinite(price) || price <= 0) {
+      this.error.set('Ingresá un precio mayor a 0.');
+      return;
+    }
+    if (originalPrice !== null && (!Number.isFinite(originalPrice) || originalPrice < 0)) {
+      this.error.set('El precio anterior tiene que ser un número válido.');
+      return;
+    }
+    if (!String(this.stockStr).trim() || !Number.isInteger(stock) || stock < 0) {
+      this.error.set('El stock tiene que ser un número entero, 0 o más.');
+      return;
+    }
+
     if (this.badgeVariant && !this.badgeLabel.trim()) {
       this.error.set('Completá el texto de la etiqueta o elegí "Sin etiqueta".');
       return;

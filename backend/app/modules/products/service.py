@@ -176,7 +176,10 @@ def add_product_images(db: Session, product_id: int, files: list[UploadFile]) ->
     product_dir = settings.STATIC_DIR / "products" / str(product_id)
     product_dir.mkdir(parents=True, exist_ok=True)
 
-    next_position = len(product.images)
+    # Después del máximo actual, no `len(images)`: si se borró una imagen,
+    # la cantidad ya no coincide con las posiciones y quedaban dos empatadas
+    # (orden de la galería y portada al azar).
+    next_position = max((image.position for image in product.images), default=-1) + 1
     created: list[ProductImage] = []
     for file, content, ext in validated:
         image_id = uuid.uuid4()
