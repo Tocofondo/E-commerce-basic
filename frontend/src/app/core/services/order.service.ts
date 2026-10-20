@@ -62,6 +62,7 @@ function toOrder(res: OrderResponse): Order {
         description: '',
         category: '',
         stock: 0,
+        isActive: true,
       },
     })),
   };

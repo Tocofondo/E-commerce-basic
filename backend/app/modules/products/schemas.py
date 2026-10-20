@@ -11,6 +11,8 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
 from pydantic.alias_generators import to_camel
 
+from app.core.money import Money
+
 BadgeVariant = Literal["sale", "new", "out-of-stock", "featured", "neutral"]
 
 
@@ -35,8 +37,8 @@ class ProductBase(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     description: str = ""
     category: str = Field(min_length=1, max_length=100)
-    price: float = Field(ge=0)
-    original_price: float | None = Field(default=None, ge=0)
+    price: Money
+    original_price: Money | None = None
     stock: int = Field(ge=0)
     rating: float | None = Field(default=None, ge=0, le=5)
     review_count: int | None = Field(default=None, ge=0)
@@ -59,17 +61,19 @@ class ProductUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
     category: str | None = Field(default=None, min_length=1, max_length=100)
-    price: float | None = Field(default=None, ge=0)
-    original_price: float | None = Field(default=None, ge=0)
+    price: Money | None = None
+    original_price: Money | None = None
     stock: int | None = Field(default=None, ge=0)
     rating: float | None = Field(default=None, ge=0, le=5)
     review_count: int | None = Field(default=None, ge=0)
     badge: BadgeInfo | None = None
+    # `true` reactiva un producto pausado (DELETE lo pausa, ver service.py).
+    is_active: bool | None = None
 
     @model_validator(mode="after")
     def _required_fields_not_null(self) -> "ProductUpdate":
         # Estos pueden faltar, pero no venir en null (la columna es NOT NULL).
-        for field in ("name", "description", "category", "price", "stock"):
+        for field in ("name", "description", "category", "price", "stock", "is_active"):
             if field in self.model_fields_set and getattr(self, field) is None:
                 raise ValueError(f"'{to_camel(field)}' no puede ser null")
         return self
@@ -78,6 +82,7 @@ class ProductUpdate(BaseModel):
 class ProductRead(ProductBase):
     id: int
     in_stock: bool
+    is_active: bool
     images: list[ProductImageRead] = []
 
     # Compat con el frontend (interfaz `Product extends ProductCard`, que

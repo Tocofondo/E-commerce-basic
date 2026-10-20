@@ -7,12 +7,14 @@ edita o borra el producto después.
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, DateTime, Float, ForeignKey, Integer, String, func
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db.base import Base
+from app.core.money import MONEY_COLUMN
 from app.modules.orders.schemas import OrderStatus
 
 
@@ -30,7 +32,7 @@ class Order(Base):
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
     )
     status: Mapped[OrderStatus] = mapped_column(String(20), default="pendiente", nullable=False)
-    total: Mapped[float] = mapped_column(Float, nullable=False)
+    total: Mapped[Decimal] = mapped_column(MONEY_COLUMN, nullable=False)
     # Datos de envío aplanados (no una tabla aparte): un pedido tiene un solo
     # destino y no se reusa entre pedidos.
     shipping_full_name: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -70,8 +72,11 @@ class OrderItem(Base):
         Integer, ForeignKey("products.id", ondelete="SET NULL"), nullable=True
     )
     product_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Ruta relativa (`/static/products/...`, ver ProductImage.path): la URL
+    # absoluta se arma al responder (core/urls.py), así sobrevive a un cambio
+    # de dominio.
     product_image: Mapped[str] = mapped_column(String(1000), nullable=False)
-    unit_price: Mapped[float] = mapped_column(Float, nullable=False)
+    unit_price: Mapped[Decimal] = mapped_column(MONEY_COLUMN, nullable=False)
     qty: Mapped[int] = mapped_column(Integer, nullable=False)
 
     order: Mapped["Order"] = relationship(back_populates="items")

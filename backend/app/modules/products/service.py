@@ -4,14 +4,14 @@ stream) sin tocar Request/Response.
 """
 
 import logging
-import shutil
 import uuid
 
 from fastapi import UploadFile
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
+from app.modules.orders.models import OrderItem
 from app.modules.products.models import Product, ProductImage
 from app.modules.products.schemas import ProductCreate, ProductUpdate
 
@@ -59,8 +59,14 @@ class InvalidImageError(Exception):
     pass
 
 
-def list_products(db: Session) -> list[Product]:
-    return list(db.scalars(select(Product).order_by(Product.id)))
+def list_products(db: Session, include_inactive: bool = False) -> list[Product]:
+    """Catálogo público: solo productos activos. El admin pide también los
+    pausados (`include_inactive`). Las imágenes se traen en una sola query
+    extra (selectinload) en vez de una por producto."""
+    query = select(Product).options(selectinload(Product.images)).order_by(Product.id)
+    if not include_inactive:
+        query = query.where(Product.is_active)
+    return list(db.scalars(query))
 
 
 def get_product(db: Session, product_id: int) -> Product | None:
@@ -109,17 +115,17 @@ def update_product(db: Session, product_id: int, data: ProductUpdate) -> Product
     return product
 
 
-def delete_product(db: Session, product_id: int) -> None:
+def delete_product(db: Session, product_id: int) -> Product:
+    """Soft delete: pausa el producto (deja de verse y de poder comprarse).
+    No se borran la fila ni los archivos: los pedidos viejos guardan la ruta
+    de su imagen y se romperían. Se reactiva con PATCH `isActive: true`."""
     product = get_product(db, product_id)
     if product is None:
         raise ProductNotFoundError(product_id)
-    db.delete(product)
+    product.is_active = False
     db.commit()
-
-    # La cascada de la FK ya borró las filas `product_images`; falta borrar
-    # los archivos del producto en disco (no los maneja la DB).
-    product_dir = settings.STATIC_DIR / "products" / str(product_id)
-    shutil.rmtree(product_dir, ignore_errors=True)
+    db.refresh(product)
+    return product
 
 
 def _validate_image(file: UploadFile) -> tuple[bytes, str]:
@@ -200,9 +206,16 @@ def delete_product_image(db: Session, product_id: int, image_id: uuid.UUID) -> N
         raise ProductImageNotFoundError(image_id)
 
     file_path = settings.STATIC_DIR / "products" / str(product_id) / image.filename
+    # Si algún pedido la tiene como snapshot, el archivo se queda en disco
+    # (solo se saca de la galería): si no, el pedido mostraría una imagen rota.
+    in_orders = db.scalar(
+        select(OrderItem.id).where(OrderItem.product_image == image.path).limit(1)
+    )
     db.delete(image)
     db.commit()
 
+    if in_orders is not None:
+        return
     try:
         file_path.unlink(missing_ok=True)
     except OSError:

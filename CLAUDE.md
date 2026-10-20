@@ -104,9 +104,17 @@ app/
                 `PATCH /products/{id}` and partial (`exclude_unset`): an
                 absent field is kept, an explicit `null` clears it. Uploaded
                 images are checked by magic bytes, not just content-type
+                Money columns are `Numeric(12, 2)` + `Decimal`
+                (`core/money.py`'s `Money` type still serializes as a JSON
+                number). `DELETE` is a soft delete (`is_active = false`,
+                "pausar" in the admin): files are kept and paused products
+                drop out of `GET /products`/ordering; `GET /products/all`
+                (admin) includes them. Image paths are stored relative
+                (`/static/...`) and made absolute on the way out
+                (`core/urls.py`'s `public_url`).
     orders/     order placement + admin status updates. `OrderItem` snapshots
-                product name/image/price at purchase time (survives the
-                product being edited or deleted later); `create_order`
+                product name/image path/price at purchase time (survives the
+                product being edited or paused later); `create_order`
                 locks the product rows (`SELECT ... FOR UPDATE`, see
                 `_lock_products`) before checking/decrementing stock, so
                 concurrent orders can't oversell. Status changes follow
@@ -180,10 +188,12 @@ Bearer <token>` to API requests and logs out on a 401.
 - `AuthService` (`ec_session` in localStorage, just the JWT + current user for
   instant hydration on reload): `login()` does `POST /auth/login` then
   `GET /auth/me`.
-- `ProductService`: loads the catalog once into a `products` signal
-  (`GET /products` on construction) and does `getById` against that in-memory
-  list rather than re-fetching; `create`/`update`/`remove` hit the admin CRUD
-  endpoints and patch the signal with the response. `refresh()` never
+- `ProductService`: loads the catalog into `allProducts` (`GET /products`,
+  or `GET /products/all` with paused ones when the user is admin; reloads when
+  that changes) and exposes `products`, the active-only catalog the store and
+  cart use. `getById` looks in `products`, `getAnyById` (admin) in
+  `allProducts`, no re-fetching; `create`/`update`/`pause`/`reactivate` hit
+  the admin CRUD endpoints and patch the signal with the response. `refresh()` never
   rejects: pages read `loaded()` (until true, "not in `products`" means "not
   loaded yet", not "doesn't exist") and `error()` to show a spinner or a
   retry button. `core/http-error.ts` (`apiErrorMessage`) turns HTTP errors

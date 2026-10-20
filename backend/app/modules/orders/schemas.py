@@ -8,8 +8,11 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic.alias_generators import to_camel
+
+from app.core.money import Money
+from app.core.urls import public_url
 
 # Mismos valores que `OrderStatus` en el frontend.
 OrderStatus = Literal["pendiente", "pagado", "enviado", "entregado", "cancelado"]
@@ -51,8 +54,13 @@ class OrderItemRead(BaseModel):
     product_id: int | None
     product_name: str
     product_image: str
-    unit_price: float
+    unit_price: Money
     qty: int
+
+    @field_validator("product_image")
+    @classmethod
+    def _absolute_image_url(cls, value: str) -> str:
+        return public_url(value)
 
 
 class OrderRead(BaseModel):
@@ -61,7 +69,7 @@ class OrderRead(BaseModel):
     id: int
     user_id: uuid.UUID
     status: OrderStatus
-    total: float
+    total: Money
     created_at: datetime
     items: list[OrderItemRead]
     shipping: ShippingInfo
