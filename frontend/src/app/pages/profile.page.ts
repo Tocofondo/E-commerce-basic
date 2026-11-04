@@ -4,19 +4,57 @@ import { Router, RouterLink } from '@angular/router';
 import { DsInput } from '../design-system/index';
 import { AuthService } from '../core/services/auth.service';
 import { INVALID_PHONE_MESSAGE, normalizeArPhone } from '../core/phone';
+import { PromotionService } from '../core/services/promotion.service';
+import { MyCoupon, ReferralStats } from '../core/models/promotion.model';
+import { DatePipe } from '@angular/common';
 
 type FormMessage = { ok: boolean; text: string } | null;
 
 @Component({
   selector: 'app-profile-page',
   standalone: true,
-  imports: [FormsModule, RouterLink, DsInput],
+  imports: [FormsModule, RouterLink, DsInput, DatePipe],
   template: `
     <main class="vy-container py-10">
       <div class="max-w-md mx-auto flex flex-col gap-6">
         <h1 class="vy-titulo"><span class="vy-marker">Tu</span> <span class="vy-heavy">perfil</span></h1>
 
         @if (auth.currentUser(); as user) {
+          @if (referrals(); as ref) {
+            <!-- Programa de referidos (ver backend/app/modules/promotions). -->
+            <section class="vy-card p-6 flex flex-col gap-3">
+              <h2 class="vy-marker text-xl">Invitá y ganá {{ ref.rewardPercent }}%</h2>
+              <p class="text-sm vy-muted">
+                Compartí tu link. Cuando alguien se registra con él y recibe su primer pedido,
+                te ganás un {{ ref.rewardPercent }}% de descuento para tu próxima compra.
+              </p>
+              <div class="flex gap-2">
+                <input class="vy-input flex-1 min-w-0" [value]="inviteLink(ref.code)" readonly aria-label="Tu link de invitación" (focus)="$any($event.target).select()" />
+                <button type="button" class="vy-btn vy-btn--secundario vy-btn--chico" (click)="copyInvite(ref.code)">
+                  {{ copied() ? '¡Copiado!' : 'Copiar' }}
+                </button>
+              </div>
+              <a [href]="shareLink(ref.code)" target="_blank" rel="noopener" class="vy-btn vy-btn--chico self-start">Compartir por WhatsApp</a>
+              <p class="text-sm vy-muted">
+                Invitaste a {{ ref.invited }} {{ ref.invited === 1 ? 'persona' : 'personas' }}
+                @if (ref.rewarded) { · ganaste {{ ref.rewarded }} {{ ref.rewarded === 1 ? 'cupón' : 'cupones' }} }
+              </p>
+            </section>
+          }
+
+          @if (coupons().length) {
+            <section class="vy-card p-6 flex flex-col gap-3">
+              <h2 class="vy-marker text-xl">Tus cupones</h2>
+              @for (c of coupons(); track c.code) {
+                <div class="flex items-center justify-between gap-3 text-sm">
+                  <span><strong>{{ c.code }}</strong> · {{ c.percent }}% off</span>
+                  @if (c.expiresAt) { <span class="vy-muted">vence {{ c.expiresAt | date: 'dd/MM/yyyy' }}</span> }
+                </div>
+              }
+              <p class="text-xs vy-muted">Se aplican en el checkout, ingresando con esta cuenta.</p>
+            </section>
+          }
+
           <form class="vy-card p-6 flex flex-col gap-4" (ngSubmit)="saveProfile()">
             <h2 class="vy-marker text-xl">Tus datos</h2>
             <div>
@@ -63,6 +101,11 @@ export class ProfilePage {
   auth = inject(AuthService);
   private router = inject(Router);
 
+  private promotions = inject(PromotionService);
+  referrals = signal<ReferralStats | null>(null);
+  coupons = signal<MyCoupon[]>([]);
+  copied = signal(false);
+
   private user = this.auth.currentUser();
   // `name` cae en el email si la cuenta no tiene nombre cargado.
   fullName = this.user && this.user.name !== this.user.email ? this.user.name : '';
@@ -75,6 +118,33 @@ export class ProfilePage {
   confirmPassword = '';
   passwordMessage = signal<FormMessage>(null);
   savingPassword = signal(false);
+
+  constructor() {
+    // Si falla, la sección simplemente no aparece.
+    this.promotions.myReferrals().then(r => this.referrals.set(r)).catch(() => {});
+    this.promotions.myCoupons().then(c => this.coupons.set(c)).catch(() => {});
+  }
+
+  /** Link de registro con el código (lo lee register.page.ts). */
+  inviteLink(code: string): string {
+    // Relativo al <base href>: funciona aunque la app no esté en la raíz.
+    return new URL(`register?ref=${code}`, document.baseURI).href;
+  }
+
+  shareLink(code: string): string {
+    const text = `Te invito a VACONYAPA: bueno, barato y con yapa. Registrate con mi link: ${this.inviteLink(code)}`;
+    return `https://wa.me/?text=${encodeURIComponent(text)}`;
+  }
+
+  async copyInvite(code: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(this.inviteLink(code));
+      this.copied.set(true);
+      setTimeout(() => this.copied.set(false), 2000);
+    } catch {
+      // Sin permiso de portapapeles: el input queda seleccionable a mano.
+    }
+  }
 
   async saveProfile(): Promise<void> {
     this.profileMessage.set(null);

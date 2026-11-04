@@ -33,7 +33,7 @@ import { apiErrorMessage } from '../../core/http-error';
             @for (product of products.allProducts(); track product.id) {
               <tr class="border-t border-border" [class.opacity-60]="!product.isActive">
                 <td class="px-4 py-3 flex items-center gap-3">
-                  <img [src]="product.image" [alt]="product.name" class="w-10 h-10 rounded-lg object-cover" />
+                  <img [src]="product.thumb || product.image" [alt]="product.name" loading="lazy" decoding="async" class="w-10 h-10 rounded-lg object-cover" />
                   <span class="text-neutral-800 font-medium">{{ product.name }}</span>
                   @if (!product.isActive) {
                     <ds-badge variant="neutral">Pausado</ds-badge>

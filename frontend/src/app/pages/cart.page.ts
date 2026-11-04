@@ -1,6 +1,7 @@
 import { Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { CartService } from '../core/services/cart.service';
+import { cartQuote } from '../core/services/promotion.service';
 import { VyLogoComponent } from '../shared/brand/vy-logo.component';
 import { PesosPipe } from '../shared/store/pesos.pipe';
 
@@ -24,7 +25,7 @@ import { PesosPipe } from '../shared/store/pesos.pipe';
           @for (item of cart.items(); track item.product.id) {
             <div class="vy-card flex flex-wrap sm:flex-nowrap items-center gap-4 p-4">
               <a [routerLink]="['/productos', item.product.id]" class="shrink-0">
-                <img [src]="item.product.image" [alt]="item.product.name" class="w-20 h-20 object-cover rounded-xl" />
+                <img [src]="item.product.thumb || item.product.image" [alt]="item.product.name" loading="lazy" decoding="async" class="w-20 h-20 object-cover rounded-xl" />
               </a>
 
               <div class="flex-1 min-w-0 flex flex-col gap-1">
@@ -63,8 +64,21 @@ import { PesosPipe } from '../shared/store/pesos.pipe';
             <span class="vy-muted text-sm">Tu pedido va con yapa: un regalo de nuestra parte.</span>
           </div>
           <div class="flex flex-col items-end gap-1">
-            <span class="vy-label">Total</span>
-            <span class="vy-precio">{{ cart.total() | pesos }}</span>
+            <!-- Promos automáticas (por cantidad, categoría, monto): las calcula
+                 el backend. El cupón se carga en el checkout. -->
+            @if (quote(); as q) {
+              @for (d of q.discounts; track d.label) {
+                <span class="text-sm" style="color: var(--vy-verde)">{{ d.label }}: −{{ d.amount | pesos }}</span>
+              }
+              <span class="vy-label">Total</span>
+              @if (q.discountTotal > 0) {
+                <span class="vy-precio-anterior">{{ q.subtotal | pesos }}</span>
+              }
+              <span class="vy-precio">{{ q.total | pesos }}</span>
+            } @else {
+              <span class="vy-label">Total</span>
+              <span class="vy-precio">{{ cart.total() | pesos }}</span>
+            }
           </div>
         </div>
 
@@ -85,4 +99,5 @@ import { PesosPipe } from '../shared/store/pesos.pipe';
 })
 export class CartPage {
   cart = inject(CartService);
+  quote = cartQuote().quote;
 }

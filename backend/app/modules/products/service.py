@@ -5,6 +5,7 @@ stream) sin tocar Request/Response.
 
 import logging
 import uuid
+from pathlib import Path
 
 from fastapi import UploadFile
 from sqlalchemy import select
@@ -12,35 +13,19 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.core.config import settings
 from app.modules.orders.models import OrderItem
+from app.modules.products.images import (
+    CONTENT_TYPE,
+    EXTENSION,
+    ImageProcessingError,
+    ProcessedImage,
+    process_image,
+)
 from app.modules.products.models import Product, ProductImage
 from app.modules.products.schemas import ProductCreate, ProductUpdate
 
 logger = logging.getLogger(__name__)
 
-# Extensión de disco por content-type aceptado — nunca se confía en el
-# filename que manda el cliente (evita path traversal / extensiones falsas).
-ALLOWED_IMAGE_TYPES: dict[str, str] = {
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/webp": ".webp",
-    "image/gif": ".gif",
-}
 MAX_IMAGE_BYTES = settings.MAX_IMAGE_SIZE_MB * 1024 * 1024
-
-
-def _looks_like(content: bytes, content_type: str) -> bool:
-    """Chequea la firma (magic bytes) del archivo contra el content-type que
-    declaró el cliente: el header lo elige quien sube, no prueba nada."""
-    if content_type == "image/jpeg":
-        return content.startswith(b"\xff\xd8\xff")
-    if content_type == "image/png":
-        return content.startswith(b"\x89PNG\r\n\x1a\n")
-    if content_type == "image/gif":
-        return content.startswith((b"GIF87a", b"GIF89a"))
-    if content_type == "image/webp":
-        return content[:4] == b"RIFF" and content[8:12] == b"WEBP"
-    return False
-
 
 # Límite a nivel aplicación (no hay CHECK/trigger en la DB): se valida acá
 # antes de escribir nada a disco.
@@ -130,16 +115,11 @@ def delete_product(db: Session, product_id: int) -> Product:
     return product
 
 
-def _validate_image(file: UploadFile) -> tuple[bytes, str]:
-    ext = ALLOWED_IMAGE_TYPES.get(file.content_type or "")
-    if ext is None:
-        allowed = ", ".join(sorted(ALLOWED_IMAGE_TYPES))
-        raise InvalidImageError(
-            f"Tipo de archivo no soportado ({file.content_type or 'desconocido'}). "
-            f"Formatos permitidos: {allowed}."
-        )
-
-    content = file.file.read()
+def _read_upload(file: UploadFile) -> bytes:
+    """Lee el archivo cortando apenas pasa el máximo (no lo carga entero si
+    es enorme). El tipo no se mira acá: lo decide Pillow por el contenido
+    (ver images.py), el content-type del cliente no prueba nada."""
+    content = file.file.read(MAX_IMAGE_BYTES + 1)
     if not content:
         raise InvalidImageError(f"El archivo '{file.filename}' está vacío.")
     if len(content) > MAX_IMAGE_BYTES:
@@ -147,17 +127,18 @@ def _validate_image(file: UploadFile) -> tuple[bytes, str]:
             f"El archivo '{file.filename}' supera el tamaño máximo permitido "
             f"({settings.MAX_IMAGE_SIZE_MB}MB)."
         )
-    if not _looks_like(content, file.content_type or ""):
-        raise InvalidImageError(
-            f"El archivo '{file.filename}' no es una imagen {file.content_type} válida."
-        )
-    return content, ext
+    return content
+
+
+def product_image_dir(product_id: int) -> Path:
+    return settings.STATIC_DIR / "products" / str(product_id)
 
 
 def add_product_images(db: Session, product_id: int, files: list[UploadFile]) -> list[ProductImage]:
-    """Valida (tipo + tamaño) y guarda en disco cada archivo, y crea su fila
-    en `product_images`. Todo o nada: si un archivo no pasa la validación no
-    se persiste ni se escribe ningún archivo de esta tanda.
+    """Valida, procesa (WEBP grande + miniatura, ver images.py) y guarda en
+    disco cada archivo, y crea su fila en `product_images`. Todo o nada: si
+    un archivo no pasa, no se persiste ni queda escrito ningún archivo de
+    esta tanda.
     """
     product = get_product(db, product_id)
     if product is None:
@@ -170,10 +151,15 @@ def add_product_images(db: Session, product_id: int, files: list[UploadFile]) ->
             f"(ya tiene {len(product.images)}, se intentaron subir {len(files)})."
         )
 
-    # Validar la tanda completa antes de tocar disco/DB.
-    validated = [(file, *_validate_image(file)) for file in files]
+    # Procesar la tanda completa antes de tocar disco/DB.
+    processed: list[ProcessedImage] = []
+    for file in files:
+        try:
+            processed.append(process_image(_read_upload(file), file.filename or "imagen"))
+        except ImageProcessingError as exc:
+            raise InvalidImageError(str(exc)) from exc
 
-    product_dir = settings.STATIC_DIR / "products" / str(product_id)
+    product_dir = product_image_dir(product_id)
     product_dir.mkdir(parents=True, exist_ok=True)
 
     # Después del máximo actual, no `len(images)`: si se borró una imagen,
@@ -181,26 +167,61 @@ def add_product_images(db: Session, product_id: int, files: list[UploadFile]) ->
     # (orden de la galería y portada al azar).
     next_position = max((image.position for image in product.images), default=-1) + 1
     created: list[ProductImage] = []
-    for file, content, ext in validated:
-        image_id = uuid.uuid4()
-        filename = f"{image_id}{ext}"
-        (product_dir / filename).write_bytes(content)
+    written: list[Path] = []
+    try:
+        for result in processed:
+            image_id = uuid.uuid4()
+            filename = f"{image_id}{EXTENSION}"
+            thumb_filename = f"{image_id}-thumb{EXTENSION}"
+            for name, data in ((filename, result.full), (thumb_filename, result.thumb)):
+                (product_dir / name).write_bytes(data)
+                written.append(product_dir / name)
 
-        image = ProductImage(
-            id=image_id,
-            product_id=product_id,
-            filename=filename,
-            content_type=file.content_type,
-            position=next_position,
-        )
-        db.add(image)
-        created.append(image)
-        next_position += 1
+            image = ProductImage(
+                id=image_id,
+                product_id=product_id,
+                filename=filename,
+                thumb_filename=thumb_filename,
+                content_type=CONTENT_TYPE,
+                width=result.width,
+                height=result.height,
+                position=next_position,
+            )
+            db.add(image)
+            created.append(image)
+            next_position += 1
+        db.commit()
+    except Exception:
+        # Sin esto, un error de disco o de DB a mitad de camino dejaba
+        # archivos huérfanos que nadie referencia.
+        db.rollback()
+        for path in written:
+            path.unlink(missing_ok=True)
+        raise
 
-    db.commit()
     for image in created:
         db.refresh(image)
     return created
+
+
+def reorder_product_images(db: Session, product_id: int, image_ids: list[uuid.UUID]) -> Product:
+    """Reasigna `position` 0..n según `image_ids`, que tiene que ser
+    exactamente el conjunto de imágenes del producto (sin faltantes ni
+    repetidos). El primero queda de portada."""
+    product = get_product(db, product_id)
+    if product is None:
+        raise ProductNotFoundError(product_id)
+    by_id = {image.id: image for image in product.images}
+    if len(image_ids) != len(by_id) or set(image_ids) != set(by_id):
+        raise InvalidImageError(
+            "El orden tiene que incluir todas las imágenes del producto, una vez cada una."
+        )
+    for position, image_id in enumerate(image_ids):
+        by_id[image_id].position = position
+    db.commit()
+    db.expire(product, ["images"])
+    db.refresh(product)
+    return product
 
 
 def delete_product_image(db: Session, product_id: int, image_id: uuid.UUID) -> None:
@@ -208,18 +229,25 @@ def delete_product_image(db: Session, product_id: int, image_id: uuid.UUID) -> N
     if image is None or image.product_id != product_id:
         raise ProductImageNotFoundError(image_id)
 
-    file_path = settings.STATIC_DIR / "products" / str(product_id) / image.filename
-    # Si algún pedido la tiene como snapshot, el archivo se queda en disco
-    # (solo se saca de la galería): si no, el pedido mostraría una imagen rota.
+    product_dir = product_image_dir(product_id)
+    names = {image.filename, image.thumb_filename or image.filename}
+    # Si algún pedido la tiene como snapshot (la grande en pedidos viejos, la
+    # miniatura en los nuevos), los archivos se quedan en disco (solo se saca
+    # de la galería): si no, el pedido mostraría una imagen rota.
     in_orders = db.scalar(
-        select(OrderItem.id).where(OrderItem.product_image == image.path).limit(1)
+        select(OrderItem.id)
+        .where(OrderItem.product_image.in_([image.path, image.thumb_path]))
+        .limit(1)
     )
     db.delete(image)
     db.commit()
 
     if in_orders is not None:
         return
-    try:
-        file_path.unlink(missing_ok=True)
-    except OSError:
-        logger.warning("No se pudo borrar el archivo de imagen en disco: %s", file_path)
+    for name in names:
+        try:
+            (product_dir / name).unlink(missing_ok=True)
+        except OSError:
+            logger.warning(
+                "No se pudo borrar el archivo de imagen en disco: %s", product_dir / name
+            )

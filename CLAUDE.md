@@ -36,9 +36,10 @@ uv run uvicorn app.main:app --reload    # http://localhost:8000 (docs at /docs)
   captured via the `sent_emails` fixture. Helpers live in `tests/conftest.py`.
 - Lint/format: `uv run ruff check app alembic tests` and `uv run ruff format
   app alembic tests` (config in `pyproject.toml`).
-- No CI workflow in the repo yet: the intended `.github/workflows/ci.yml`
-  (needs a `workflow`-scoped token to push) runs all of that plus `npm ci &&
-  npm run build` on every PR.
+- CI: `.github/workflows/ci.yml` runs on pushes to `main` and on every PR: backend
+  (ruff, `alembic upgrade head`, pytest against a Postgres service) and
+  frontend (`npm ci && npm run build`). Editing it needs a `workflow`-scoped
+  token to push.
 
 ### Frontend (`frontend/`)
 
@@ -110,16 +111,13 @@ app/
                 interface field-for-field; `badge`/`in_stock` are computed
                 properties on the ORM model, not stored as-is). Edits are
                 `PATCH /products/{id}` and partial (`exclude_unset`): an
-                absent field is kept, an explicit `null` clears it. Uploaded
-                images are checked by magic bytes, not just content-type
-                Money columns are `Numeric(12, 2)` + `Decimal`
+                absent field is kept, an explicit `null` clears it. Images:
+                see "Product images" below. Money columns are `Numeric(12, 2)` + `Decimal`
                 (`core/money.py`'s `Money` type still serializes as a JSON
                 number). `DELETE` is a soft delete (`is_active = false`,
                 "pausar" in the admin): files are kept and paused products
                 drop out of `GET /products`/ordering; `GET /products/all`
-                (admin) includes them. Image paths are stored relative
-                (`/static/...`) and made absolute on the way out
-                (`core/urls.py`'s `public_url`).
+                (admin) includes them.
     orders/     order placement + admin status updates. `OrderItem` snapshots
                 product name/image path/price at purchase time (survives the
                 product being edited or paused later); `create_order`
@@ -137,6 +135,8 @@ app/
                 A logged-in customer can cancel their own order while it's
                 `pendiente` (`POST /orders/{id}/cancel`, restocks, emails
                 `ORDER_NOTIFY_EMAIL`); guests ask by WhatsApp
+    promotions/ automatic promotions, coupons and referrals — see
+                "Promotions, coupons & referrals" below
     withdrawals/ "botón de arrepentimiento" (Res. 424/2020): public
                 `POST /withdrawals` (no login) returns a tracking code and
                 emails it; admin lists/resolves them at
@@ -145,6 +145,88 @@ app/
 alembic/      migrations; DB URL comes from app.core.config.settings, not
               alembic.ini directly
 ```
+
+### Promotions, coupons & referrals
+
+`modules/promotions/`, admin UI at `/admin/promociones`.
+
+- `pricing.py` is pure (no DB): `price(lines, promotions, coupon)`. Order:
+  (1) per line, the *best* `kind="product"` promotion that applies (scope =
+  all / `category` (case-insensitive) / `product_id`, plus `min_qty` units
+  *of that same product*) — line promos never stack; (2) the best
+  `kind="order"` promotion whose `min_amount` the subtotal *after* step 1
+  reaches; (3) the coupon on what's left. Each step rounds to cents.
+- `orders/service.py` uses it in two places so the customer sees what gets
+  charged: `quote_order` (`POST /orders/quote`, public, no stock lock; an
+  invalid coupon returns the quote without it + `couponError`; rate-limited
+  per IP when a code is sent) and `create_order` (invalid coupon → 400).
+  Orders store `subtotal`, `discount_total`, `total`, a `discounts` JSONB
+  snapshot `[{label, amount}]` and `coupon_id`/`coupon_code`.
+- Coupons (`resolve_coupon`): active, not expired, `uses < max_uses`, once
+  per buyer (account, or contact email for guests; cancelled orders don't
+  count), personal ones (`owner_id`) only for that logged-in user, optional
+  `min_amount` against the post-promotion subtotal. Locked `FOR UPDATE` when
+  placing the order; `uses` is incremented then and decremented
+  (`release_coupon`) when the order is cancelled by admin or customer.
+- Referrals (logged-in customers only): every `User` has a `referral_code`
+  (column default `new_referral_code`); `POST /auth/register` accepts
+  `referral_code` (unknown ones are ignored) and sets `referred_by_id`. When
+  the admin moves an order to `entregado`, `grant_referral_reward` gives the
+  referrer a personal one-use coupon (`REFERRAL_REWARD_PERCENT`, valid
+  `REFERRAL_REWARD_DAYS`) — once per invited user (`referral_rewarded_at`),
+  and emails it. Profile page shows the invite link (`/register?ref=CODE`),
+  stats (`GET /promotions/referrals/me`) and the user's coupons
+  (`GET /promotions/coupons/me`); checkout offers them with one tap.
+- Frontend: `PromotionService` (+ `cartQuote()`, a debounced quote signal
+  used by cart and checkout); the product page shows applicable active
+  promotions (`GET /promotions/active`).
+
+### Product images
+
+Uploaded by the admin from the product form (`admin-product-form.page.ts`)
+and stored on the backend's disk — no external storage/CDN. Every upload is
+re-encoded, never stored as sent:
+
+- Browser first (`core/image-upload.ts`, `prepareImageForUpload`): downscales
+  to 2400px and re-encodes to WEBP (JPEG on browsers that can't) so phone
+  uploads are fast; also converts formats the browser can decode but the
+  backend rejects (HEIC on Safari). GIFs and already-small images go as-is.
+  The form has drag & drop, ◀/▶/★ to reorder or pick the cover (saved at once
+  via `PUT .../images/order` for uploaded ones; pending ones upload in grid
+  order on save) and an upload progress bar (`reportProgress`).
+- `POST /products/{id}/images` (admin, multipart `files`) →
+  `add_product_images` in `products/service.py`, all-or-nothing per batch.
+  `products/images.py` (`process_image`, Pillow, no DB/FastAPI) decodes
+  the whole file — the format is detected from content (JPEG/PNG/WEBP/GIF),
+  the client's content-type is ignored — caps pixels (`MAX_PIXELS`), applies
+  EXIF orientation, drops all metadata (phone photos carry GPS), and writes
+  two WEBPs: `<uuid>.webp` (≤1600px, `FULL_MAX_SIDE`) and `<uuid>-thumb.webp`
+  (≤640px, `THUMB_MAX_SIDE`). Max original size `MAX_IMAGE_SIZE_MB` (15);
+  `MAX_IMAGES_PER_PRODUCT` (4). If writing/committing fails, files already
+  written are removed.
+- On disk: `settings.STATIC_DIR/products/<product_id>/`; the UUID is the
+  `ProductImage.id` (not guessable), never the client's filename. `main.py`
+  mounts `STATIC_DIR` at `/static` with `ImmutableStaticFiles`
+  (`Cache-Control: immutable`, 1 year — safe because every upload is a new
+  name). Locally `backend/static/` (git-ignored); in production the
+  `static_data` volume (proxied by Caddy, included in `backup.sh`).
+- `product_images` rows: `filename`, `thumb_filename`, `width`/`height` of
+  the full one, `position`. The last three are NULL for images uploaded
+  before processing existed; `python -m app.modules.products.reprocess_images`
+  converts them (idempotent, keeps originals referenced by orders). Until
+  then `thumbUrl` = `url` and there's no `srcset`.
+- API: each image has `url`, `thumbUrl`, `width`, `height`, `position`;
+  products also get `image` (cover, full) and `thumb` (cover, small) — first
+  by `position`, `""` if none (frontend falls back to
+  `PRODUCT_IMAGE_PLACEHOLDER`). The DB stores relative paths and responses
+  make them absolute with `core/urls.py`'s `public_url` (`BACKEND_PUBLIC_URL`).
+- Frontend display: cards, cart and admin lists use `thumb || image` (old
+  cart copies in localStorage may lack `thumb`); cards and the product detail
+  use `productSrcset` (`shared/store/product-image.ts`, real widths so
+  portrait images don't pick a too-small thumb) + `sizes`.
+- Orders snapshot the cover's `thumb_path` (`OrderItem.product_image`).
+  `DELETE /products/{id}/images/{image_id}` removes the row and both files,
+  except files an order references; pausing a product keeps all files.
 
 Any new business module (cart, reviews, ...) should follow the same
 `models.py` + `schemas.py` + `service.py` + `router.py` shape as the existing
@@ -184,6 +266,8 @@ src/app/
                    light); the store gets `.vy-oscuro .vy-tienda` (see
                    brand.scss). Keep asset paths relative (no leading `/`) so
                    the build works under any `--base-href`.
+  shared/store/    Store pieces: store-product-card, `pesos` pipe,
+                   app-social-icon (inline Simple Icons SVGs for the footer)
   core/
     models/        Product, User, CartItem, Order interfaces
     services/      App state as signals; `ProductService`/`OrderService`
@@ -195,7 +279,8 @@ src/app/
 ```
 
 Routes are declared in `app.routes.ts`: customer routes are nested under
-`StoreLayout`, admin routes under `AdminLayout` gated by `adminGuard`;
+`StoreLayout`, admin routes (lazy, `loadComponent`, so the store bundle
+doesn't ship them) under `AdminLayout` gated by `adminGuard`;
 `mis-pedidos`, `perfil` are gated by `authGuard` (`checkout` is not: guests
 can buy). Guards redirect to
 `/login`, or to `/` if a non-admin hits `/admin`.
@@ -246,12 +331,16 @@ To close that gap, checkout redirects to a `wa.me` link (also offered as an
 "Enviar pedido por WhatsApp" button) prefilled with the order details, since a browser can't send
 WhatsApp messages on its own without the WhatsApp Business API + a backend
 integration for it. Admin's WhatsApp number is `ADMIN_WHATSAPP` in
-`src/app/core/config/app.config.constants.ts`.
+`src/app/core/config/app.config.constants.ts`; while it's the placeholder,
+every WhatsApp button/redirect is hidden (`WhatsappService.adminConfigured`).
+The same file holds `SOCIAL_LINKS` (Instagram/TikTok/Facebook icons in the
+store footer, hidden while `href` is empty; the WhatsApp icon comes from
+`ADMIN_WHATSAPP`) and `SELLER` (legal seller data, still `COMPLETAR`).
 
 ## Out of scope (current prototype)
 
 - Real payments (checkout only records the order).
-- Admin-uploaded product images (URL-only).
+- Fixed-amount ($) discounts: promotions and coupons are percentage-only.
 - Automatic WhatsApp sending without a backend.
 - Cross-device cart sync (still `localStorage`-only, unlike catalog/orders/login
   which are backed by Postgres now).

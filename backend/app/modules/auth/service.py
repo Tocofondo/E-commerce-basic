@@ -39,12 +39,17 @@ def create_user(db: Session, user_in: UserCreate, role: UserRole = "customer") -
     if get_user_by_email(db, user_in.email) is not None:
         raise EmailAlreadyRegisteredError(user_in.email)
 
+    # Import local: promotions depende de auth (User), no al revés.
+    from app.modules.promotions.service import find_referrer
+
+    referrer = find_referrer(db, user_in.referral_code)
     user = User(
         email=user_in.email,
         phone=user_in.phone,
         hashed_password=hash_password(user_in.password),
         full_name=user_in.full_name,
         role=role,
+        referred_by_id=referrer.id if referrer else None,
     )
     db.add(user)
     try:

@@ -170,6 +170,14 @@ docker compose up -d --build
 Las migraciones nuevas se aplican solas al reiniciar el backend. Antes de
 un cambio grande, correr `./backup.sh` a mano.
 
+Si había imágenes de producto subidas antes de que existiera el
+procesamiento (WEBP + miniatura), convertirlas una vez (es idempotente: se
+puede volver a correr sin problema):
+
+```bash
+docker compose exec backend uv run python -m app.modules.products.reprocess_images
+```
+
 ## Comandos útiles
 
 ```bash

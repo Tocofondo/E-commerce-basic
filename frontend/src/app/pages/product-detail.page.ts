@@ -7,6 +7,8 @@ import { ProductService } from '../core/services/product.service';
 import { CartService } from '../core/services/cart.service';
 import { VyLogoComponent } from '../shared/brand/vy-logo.component';
 import { PesosPipe } from '../shared/store/pesos.pipe';
+import { productSrcset } from '../shared/store/product-image';
+import { PromotionService } from '../core/services/promotion.service';
 
 @Component({
   selector: 'app-product-detail-page',
@@ -20,7 +22,15 @@ import { PesosPipe } from '../shared/store/pesos.pipe';
         <div class="grid md:grid-cols-2 gap-8 lg:gap-12 mt-6">
           <div class="flex flex-col gap-3">
             <div class="vy-card relative aspect-square">
-              <img [src]="mainImage()" [alt]="product.name" class="w-full h-full object-cover" />
+              <!-- La imagen principal es lo primero que se ve: sin lazy y con prioridad. -->
+              <img
+                [src]="mainImage()"
+                [attr.srcset]="mainSrcset()"
+                sizes="(min-width: 768px) 50vw, 100vw"
+                [alt]="product.name"
+                fetchpriority="high"
+                class="w-full h-full object-cover"
+              />
               @if (product.badge && product.stock > 0) {
                 <span class="vy-chip absolute top-4 left-4">{{ product.badge.label }}</span>
               }
@@ -37,7 +47,7 @@ import { PesosPipe } from '../shared/store/pesos.pipe';
                     [class.border-border]="i !== selectedIndex()"
                     [attr.aria-label]="'Ver imagen ' + (i + 1)"
                   >
-                    <img [src]="img.url" [alt]="product.name" class="w-full h-full object-cover" />
+                    <img [src]="img.thumbUrl" [alt]="product.name" loading="lazy" decoding="async" class="w-full h-full object-cover" />
                   </button>
                 }
               </div>
@@ -53,6 +63,19 @@ import { PesosPipe } from '../shared/store/pesos.pipe';
                 <span class="vy-precio-anterior" style="font-size: var(--vy-fs-md)">{{ product.originalPrice | pesos }}</span>
               }
             </div>
+            @if (promos().length) {
+              <ul class="flex flex-col gap-2">
+                @for (promo of promos(); track promo.id) {
+                  <li class="vy-chip self-start">
+                    @if (promo.minQty > 1) {
+                      Llevando {{ promo.minQty }} o más: {{ promo.percent }}% off
+                    } @else {
+                      {{ promo.name }}: {{ promo.percent }}% off
+                    }
+                  </li>
+                }
+              </ul>
+            }
             <p class="vy-muted leading-relaxed whitespace-pre-line">{{ product.description }}</p>
             <p class="text-sm" [class.vy-muted]="product.stock > 0" [class.text-error]="product.stock === 0">
               {{ product.stock > 0 ? product.stock + ' unidades disponibles' : 'Sin stock por ahora' }}
@@ -110,6 +133,21 @@ import { PesosPipe } from '../shared/store/pesos.pipe';
 export class ProductDetailPage {
   private route = inject(ActivatedRoute);
   productsSrv = inject(ProductService);
+  private promotionSrv = inject(PromotionService);
+
+  /** Promos por producto vigentes que aplican a este (por producto, categoría o
+   * todo el catálogo). Las de monto mínimo se ven recién en el carrito. */
+  promos = computed(() => {
+    const product = this.product();
+    if (!product) return [];
+    return this.promotionSrv.active().filter(
+      promo =>
+        promo.kind === 'product' &&
+        (promo.productId !== null
+          ? promo.productId === Number(product.id)
+          : promo.category === null || promo.category.toLowerCase() === product.category.toLowerCase()),
+    );
+  });
   private cart = inject(CartService);
 
   private id = toSignal(
@@ -126,6 +164,7 @@ export class ProductDetailPage {
     const product = this.product();
     return product?.images[this.selectedIndex()]?.url ?? product?.image ?? '';
   });
+  mainSrcset = computed(() => productSrcset(this.product()?.images[this.selectedIndex()]));
 
   qty = signal(1);
   message = signal<{ ok: boolean; text: string } | null>(null);
@@ -138,6 +177,7 @@ export class ProductDetailPage {
   });
 
   constructor() {
+    this.promotionSrv.loadActive();
     // Al navegar a otro producto, volver a arrancar en la primera imagen.
     effect(() => {
       this.id();

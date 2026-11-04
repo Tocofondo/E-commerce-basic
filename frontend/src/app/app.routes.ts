@@ -1,6 +1,5 @@
 import { Routes } from '@angular/router';
 import { StoreLayout } from './layouts/store-layout';
-import { AdminLayout } from './layouts/admin-layout';
 import { authGuard } from './core/guards/auth.guard';
 import { adminGuard } from './core/guards/admin.guard';
 import { LoginPage } from './pages/login.page';
@@ -17,11 +16,6 @@ import { ProfilePage } from './pages/profile.page';
 import { WithdrawalPage } from './pages/withdrawal.page';
 import { TermsPage } from './pages/terms.page';
 import { PrivacyPage } from './pages/privacy.page';
-import { AdminDashboardPage } from './pages/admin/admin-dashboard.page';
-import { AdminProductsPage } from './pages/admin/admin-products.page';
-import { AdminProductFormPage } from './pages/admin/admin-product-form.page';
-import { AdminOrdersPage } from './pages/admin/admin-orders.page';
-import { AdminWithdrawalsPage } from './pages/admin/admin-withdrawals.page';
 import { BrandDemoComponent } from './shared/brand/brand-demo.component';
 
 export const routes: Routes = [
@@ -48,17 +42,19 @@ export const routes: Routes = [
       { path: 'privacidad', component: PrivacyPage },
     ],
   },
+  // Admin en chunks aparte (lazy): la tienda no descarga su código.
   {
     path: 'admin',
-    component: AdminLayout,
+    loadComponent: () => import('./layouts/admin-layout').then(m => m.AdminLayout),
     canActivate: [adminGuard],
     children: [
-      { path: '', component: AdminDashboardPage },
-      { path: 'productos', component: AdminProductsPage },
-      { path: 'productos/nuevo', component: AdminProductFormPage },
-      { path: 'productos/:id', component: AdminProductFormPage },
-      { path: 'pedidos', component: AdminOrdersPage },
-      { path: 'arrepentimientos', component: AdminWithdrawalsPage },
+      { path: '', loadComponent: () => import('./pages/admin/admin-dashboard.page').then(m => m.AdminDashboardPage) },
+      { path: 'productos', loadComponent: () => import('./pages/admin/admin-products.page').then(m => m.AdminProductsPage) },
+      { path: 'productos/nuevo', loadComponent: () => import('./pages/admin/admin-product-form.page').then(m => m.AdminProductFormPage) },
+      { path: 'productos/:id', loadComponent: () => import('./pages/admin/admin-product-form.page').then(m => m.AdminProductFormPage) },
+      { path: 'pedidos', loadComponent: () => import('./pages/admin/admin-orders.page').then(m => m.AdminOrdersPage) },
+      { path: 'arrepentimientos', loadComponent: () => import('./pages/admin/admin-withdrawals.page').then(m => m.AdminWithdrawalsPage) },
+      { path: 'promociones', loadComponent: () => import('./pages/admin/admin-promotions.page').then(m => m.AdminPromotionsPage) },
     ],
   },
   { path: '**', redirectTo: '' },

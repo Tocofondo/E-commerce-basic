@@ -6,6 +6,7 @@ otros módulos importan `settings` desde este archivo en vez de leer
 `os.environ` directamente.
 """
 
+from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
@@ -88,6 +89,11 @@ class Settings(BaseSettings):
     # Casilla que recibe el aviso de cada pedido nuevo. Vacío = no se avisa
     # por mail (el pedido igual queda en /admin/pedidos).
     ORDER_NOTIFY_EMAIL: str = ""
+    # Programa de referidos (modules/promotions): % del cupón que gana quien
+    # invita cuando se entrega el primer pedido del invitado, y cuántos días
+    # tiene para usarlo.
+    REFERRAL_REWARD_PERCENT: Decimal = Decimal("10")
+    REFERRAL_REWARD_DAYS: int = 90
 
     # --- Frontend (para armar el link de "olvidé mi contraseña") ---
     FRONTEND_URL: str = "http://localhost:4200"
@@ -109,7 +115,9 @@ class Settings(BaseSettings):
     BACKEND_PUBLIC_URL: str = "http://localhost:8000"
     STATIC_DIR: Path = Path("static")
     STATIC_URL_PREFIX: str = "/static"
-    MAX_IMAGE_SIZE_MB: int = 5
+    # Del archivo original que se sube: se re-codifica a WEBP mucho más
+    # liviano (ver modules/products/images.py), así que puede ser generoso.
+    MAX_IMAGE_SIZE_MB: int = 15
 
 
 @lru_cache

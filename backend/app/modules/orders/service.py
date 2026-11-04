@@ -4,15 +4,25 @@ Response): recibe una Session y datos ya validados.
 
 import uuid
 from collections import defaultdict
-from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.core.formatting import format_pesos
 from app.modules.auth.models import User
 from app.modules.orders.models import Order, OrderItem
-from app.modules.orders.schemas import OrderCreate, OrderStatus
+from app.modules.orders.schemas import OrderCreate, OrderItemCreate, OrderStatus
 from app.modules.products.models import Product
+from app.modules.promotions.models import Coupon
+from app.modules.promotions.pricing import Line, Quote, price
+from app.modules.promotions.service import (
+    CouponError,
+    active_promotions,
+    coupon_terms,
+    grant_referral_reward,
+    release_coupon,
+    resolve_coupon,
+)
 
 
 class OrderNotFoundError(Exception):
@@ -77,47 +87,108 @@ class NotCancellableError(Exception):
     pass
 
 
+def _merge_items(items: list[OrderItemCreate]) -> dict[int, int]:
+    """Mismo producto en varias líneas: se suman (una sola validación de stock
+    y un solo item por producto). El dict conserva el orden del carrito."""
+    qty_by_product: dict[int, int] = defaultdict(int)
+    for item_in in items:
+        qty_by_product[item_in.product_id] += item_in.qty
+    return qty_by_product
+
+
+def _lines(products: dict[int, Product], qty_by_product: dict[int, int]) -> list[Line]:
+    lines = []
+    for product_id, qty in qty_by_product.items():
+        product = products.get(product_id)
+        # Un producto pausado (soft delete) no se puede comprar.
+        if product is None or not product.is_active:
+            raise ProductNotFoundError(product_id)
+        lines.append(Line(product.id, product.category, product.price, qty))
+    return lines
+
+
+def quote_order(
+    db: Session,
+    user: User | None,
+    items: list[OrderItemCreate],
+    coupon_code: str | None,
+    email: str | None,
+) -> tuple[Quote, str | None]:
+    """Presupuesto del carrito con los descuentos, sin crear nada ni tocar
+    stock. Un cupón que no aplica no es error: vuelve el presupuesto sin él
+    y el motivo, para mostrarlo al lado del campo."""
+    qty_by_product = _merge_items(items)
+    products = {
+        product.id: product
+        for product in db.scalars(select(Product).where(Product.id.in_(set(qty_by_product))))
+    }
+    lines = _lines(products, qty_by_product)
+    promotions = active_promotions(db)
+    coupon_error = None
+    terms = None
+    if coupon_code:
+        try:
+            coupon = resolve_coupon(db, coupon_code, user=user, email=user.email if user else email)
+            terms = coupon_terms(coupon)
+            base = price(lines, promotions)
+            if coupon.min_amount is not None and base.before_coupon < coupon.min_amount:
+                raise CouponError(
+                    f"El cupón es para compras desde {format_pesos(coupon.min_amount)}"
+                )
+        except CouponError as exc:
+            coupon_error = str(exc)
+            terms = None
+    return price(lines, promotions, terms), coupon_error
+
+
 def create_order(db: Session, user: User | None, order_in: OrderCreate) -> Order:
-    """Crea el pedido y descuenta stock. Todo en una sola transacción: si
-    algún producto no existe o no alcanza el stock, no se persiste nada.
+    """Crea el pedido, aplica promociones y cupón (ver promotions/pricing.py)
+    y descuenta stock. Todo en una sola transacción: si algún producto no
+    existe, no alcanza el stock o el cupón no vale, no se persiste nada.
     `user` None = invitado: el contacto es el email/teléfono que dejó.
     """
     customer_email = user.email if user else order_in.email
     if not order_in.has_contact(customer_email):
         raise MissingContactError()
 
-    # Mismo producto en varias líneas: se suman (una sola validación de stock
-    # y un solo item por producto). El dict conserva el orden del carrito.
-    qty_by_product: dict[int, int] = defaultdict(int)
-    for item_in in order_in.items:
-        qty_by_product[item_in.product_id] += item_in.qty
-
+    qty_by_product = _merge_items(order_in.items)
     try:
         products = _lock_products(db, set(qty_by_product))
+        lines = _lines(products, qty_by_product)
         items: list[OrderItem] = []
-        total = Decimal("0")
-        for product_id, qty in qty_by_product.items():
-            product = products.get(product_id)
-            # Un producto pausado (soft delete) no se puede comprar.
-            if product is None or not product.is_active:
-                raise ProductNotFoundError(product_id)
-            if product.stock < qty:
+        for line in lines:
+            product = products[line.product_id]
+            if product.stock < line.qty:
                 raise InsufficientStockError(product.id, product.name, product.stock)
-
-            product.stock -= qty
-            total += product.price * qty
-            # Snapshot: si el producto no tiene imágenes cargadas, el pedido
-            # queda con string vacío (el frontend ya maneja `image` ausente).
-            product_image = product.images[0].path if product.images else ""
+            product.stock -= line.qty
+            # Snapshot de la portada en chico (los pedidos solo la muestran
+            # en miniatura). Sin imágenes, string vacío (el frontend ya maneja
+            # `image` ausente).
+            product_image = product.images[0].thumb_path if product.images else ""
             items.append(
                 OrderItem(
                     product_id=product.id,
                     product_name=product.name,
                     product_image=product_image,
                     unit_price=product.price,
-                    qty=qty,
+                    qty=line.qty,
                 )
             )
+
+        promotions = active_promotions(db)
+        coupon = None
+        if order_in.coupon_code:
+            # Lockeado: dos compras simultáneas no pasan el límite de usos.
+            coupon = resolve_coupon(
+                db, order_in.coupon_code, user=user, email=customer_email, lock=True
+            )
+            base = price(lines, promotions)
+            if coupon.min_amount is not None and base.before_coupon < coupon.min_amount:
+                raise CouponError(
+                    f"El cupón es para compras desde {format_pesos(coupon.min_amount)}"
+                )
+            coupon.uses += 1
+        quote = price(lines, promotions, coupon_terms(coupon) if coupon else None)
     except Exception:
         # Libera los locks ya, sin esperar a que se cierre la sesión.
         db.rollback()
@@ -127,7 +198,12 @@ def create_order(db: Session, user: User | None, order_in: OrderCreate) -> Order
         user_id=user.id if user else None,
         customer_email=customer_email,
         status="pendiente",
-        total=total,
+        subtotal=quote.subtotal,
+        discount_total=quote.discount_total,
+        total=quote.total,
+        discounts=[{"label": label, "amount": str(amount)} for label, amount in quote.discounts],
+        coupon_id=coupon.id if coupon else None,
+        coupon_code=coupon.code if coupon else None,
         shipping_full_name=order_in.shipping.full_name,
         shipping_phone=order_in.shipping.phone,
         shipping_address=order_in.shipping.address,
@@ -183,26 +259,34 @@ def _restock(db: Session, order: Order) -> None:
             product.stock += item.qty
 
 
-def update_order_status(db: Session, order_id: int, status: OrderStatus) -> Order:
-    """Cambia el estado respetando `ALLOWED_TRANSITIONS`. Al cancelar
-    repone el stock."""
+def update_order_status(
+    db: Session, order_id: int, status: OrderStatus
+) -> tuple[Order, tuple[User, Coupon] | None]:
+    """Cambia el estado respetando `ALLOWED_TRANSITIONS`. Al cancelar repone
+    el stock y libera el cupón; al entregar, si el comprador vino invitado,
+    le da el premio a quien lo invitó. Devuelve el pedido y, si hubo premio,
+    (invitador, cupón) para avisarle."""
     order = _lock_order(db, order_id)
     if order is None:
         raise OrderNotFoundError(order_id)
     if status == order.status:
         db.rollback()
-        return order
+        return order, None
     if status not in ALLOWED_TRANSITIONS[order.status]:
         db.rollback()
         raise InvalidStatusTransitionError(order.status, status)
 
+    reward = None
     if status == "cancelado":
         _restock(db, order)
+        release_coupon(db, order)
+    elif status == "entregado":
+        reward = grant_referral_reward(db, order)
 
     order.status = status
     db.commit()
     db.refresh(order)
-    return order
+    return order, reward
 
 
 def cancel_own_order(db: Session, order_id: int, user_id: uuid.UUID) -> Order:
@@ -218,6 +302,7 @@ def cancel_own_order(db: Session, order_id: int, user_id: uuid.UUID) -> Order:
         db.rollback()
         raise NotCancellableError(order_id)
     _restock(db, order)
+    release_coupon(db, order)
     order.status = "cancelado"
     db.commit()
     db.refresh(order)

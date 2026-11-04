@@ -1,6 +1,6 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpEventType } from '@angular/common/http';
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
+import { filter, firstValueFrom, map, tap } from 'rxjs';
 import { API_BASE_URL } from '../config/api.config';
 import { PRODUCT_IMAGE_PLACEHOLDER } from '../config/app.config.constants';
 import { Product, ProductImage, ProductInput } from '../models/product.model';
@@ -16,7 +16,20 @@ import { AuthService } from './auth.service';
 // que <ds-card-product> y el resto de las vistas no rendericen un <img>
 // roto (no se puede tocar el design-system para manejar el string vacío ahí).
 function withImageFallback(product: Product): Product {
-  return product.image ? product : { ...product, image: PRODUCT_IMAGE_PLACEHOLDER };
+  return product.image
+    ? product
+    : { ...product, image: PRODUCT_IMAGE_PLACEHOLDER, thumb: PRODUCT_IMAGE_PLACEHOLDER };
+}
+
+/** Recalcula portada (`image`/`thumb`) a partir de la galería, igual que el
+ * backend (la primera por `position`). */
+function withImages(product: Product, images: ProductImage[]): Product {
+  return withImageFallback({
+    ...product,
+    images,
+    image: images[0]?.url ?? '',
+    thumb: images[0]?.thumbUrl ?? '',
+  });
 }
 
 @Injectable({ providedIn: 'root' })
@@ -115,26 +128,54 @@ export class ProductService {
   }
 
   /** Sube una o varias imágenes para un producto ya creado
-   * (POST /products/{id}/images, multipart). El backend valida tipo
-   * (png/jpeg/webp/gif) y tamaño máximo — ver backend/app/modules/products/service.py.
-   * Devuelve las imágenes nuevas y actualiza el producto en el signal local
-   * (recalculando `image` como la primera de la galería). */
-  async uploadImages(productId: number, files: File[]): Promise<ProductImage[]> {
+   * (POST /products/{id}/images, multipart). El backend las valida y las
+   * convierte a WEBP + miniatura — ver backend/app/modules/products/images.py.
+   * `onProgress` recibe 0..1 a medida que se sube (útil con datos móviles).
+   * Devuelve las imágenes nuevas y actualiza el producto en el signal local. */
+  async uploadImages(
+    productId: number,
+    files: File[],
+    onProgress?: (fraction: number) => void,
+  ): Promise<ProductImage[]> {
     const formData = new FormData();
     for (const file of files) formData.append('files', file);
 
     const newImages = await firstValueFrom(
-      this.http.post<ProductImage[]>(`${API_BASE_URL}/products/${productId}/images`, formData),
+      this.http
+        .post<ProductImage[]>(`${API_BASE_URL}/products/${productId}/images`, formData, {
+          reportProgress: true,
+          observe: 'events',
+        })
+        .pipe(
+          tap(event => {
+            if (event.type === HttpEventType.UploadProgress && event.total) {
+              onProgress?.(event.loaded / event.total);
+            }
+          }),
+          filter(event => event.type === HttpEventType.Response),
+          map(event => event.body ?? []),
+        ),
     );
 
-    this.allProducts.update(list =>
-      list.map(p => {
-        if (Number(p.id) !== productId) return p;
-        const images = [...p.images, ...newImages];
-        return withImageFallback({ ...p, images, image: images[0]?.url ?? '' });
-      }),
-    );
+    this.patchImages(productId, images => [...images, ...newImages]);
     return newImages;
+  }
+
+  /** Nuevo orden de la galería (todos los ids, el primero es la portada). */
+  async reorderImages(productId: number, imageIds: string[]): Promise<Product> {
+    const updated = withImageFallback(
+      await firstValueFrom(
+        this.http.put<Product>(`${API_BASE_URL}/products/${productId}/images/order`, { imageIds }),
+      ),
+    );
+    this.replace(updated);
+    return updated;
+  }
+
+  private patchImages(productId: number, change: (images: ProductImage[]) => ProductImage[]): void {
+    this.allProducts.update(list =>
+      list.map(p => (Number(p.id) === productId ? withImages(p, change(p.images)) : p)),
+    );
   }
 
   async deleteImage(productId: number, imageId: string): Promise<void> {
@@ -142,12 +183,6 @@ export class ProductService {
       this.http.delete<void>(`${API_BASE_URL}/products/${productId}/images/${imageId}`),
     );
 
-    this.allProducts.update(list =>
-      list.map(p => {
-        if (Number(p.id) !== productId) return p;
-        const images = p.images.filter(img => img.id !== imageId);
-        return withImageFallback({ ...p, images, image: images[0]?.url ?? '' });
-      }),
-    );
+    this.patchImages(productId, images => images.filter(img => img.id !== imageId));
   }
 }

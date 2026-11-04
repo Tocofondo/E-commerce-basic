@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, EventEmitter, Input, Output } from 
 import { RouterLink } from '@angular/router';
 import { Product } from '../../core/models/product.model';
 import { PesosPipe } from './pesos.pipe';
+import { productSrcset } from './product-image';
 
 /**
  * Tarjeta de producto de la tienda, con la estética de `vy-product-card` del
@@ -19,9 +20,25 @@ import { PesosPipe } from './pesos.pipe';
   template: `
     <article class="vy-card tarjeta">
       <a class="foto" [routerLink]="['/productos', product.id]" [attr.aria-label]="product.name">
-        <img [src]="product.image" [alt]="product.name" loading="lazy" />
-        @if (secondImage; as url) {
-          <img class="foto-hover" [src]="url" alt="" loading="lazy" />
+        <!-- 2 columnas en el celu, 4 desde lg (ver catalog/home). -->
+        <img
+          [src]="product.thumb || product.image"
+          [attr.srcset]="srcset(product.images[0])"
+          sizes="(min-width: 1024px) 25vw, 50vw"
+          [alt]="product.name"
+          loading="lazy"
+          decoding="async"
+        />
+        @if (product.images[1]; as second) {
+          <img
+            class="foto-hover"
+            [src]="second.thumbUrl"
+            [attr.srcset]="srcset(second)"
+            sizes="(min-width: 1024px) 25vw, 50vw"
+            alt=""
+            loading="lazy"
+            decoding="async"
+          />
         }
         @if (!inStock) {
           <span class="vy-chip vy-chip--contorno etiqueta sin-stock">Sin stock</span>
@@ -108,7 +125,5 @@ export class StoreProductCard {
     return this.product.stock > 0;
   }
 
-  get secondImage(): string | null {
-    return this.product.images[1]?.url ?? null;
-  }
+  srcset = productSrcset;
 }

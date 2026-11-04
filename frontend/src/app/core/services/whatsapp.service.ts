@@ -14,6 +14,12 @@ export class WhatsappService {
     const lines = [
       `Nuevo pedido #${order.id}`,
       ...order.items.map(i => `- ${i.qty}x ${i.product.name} (${formatPesos(i.product.price)})`),
+      ...(order.discountTotal > 0
+        ? [
+            `Subtotal: ${formatPesos(order.subtotal)}`,
+            ...order.discounts.map(d => `${d.label}: -${formatPesos(d.amount)}`),
+          ]
+        : []),
       `Total: ${formatPesos(order.total)}`,
       '',
       `Cliente: ${order.shipping.fullName}`,

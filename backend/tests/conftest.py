@@ -89,7 +89,7 @@ def clean_tables() -> Iterator[None]:
         conn.execute(
             text(
                 "TRUNCATE users, products, product_images, orders, order_items, "
-                "withdrawal_requests RESTART IDENTITY CASCADE"
+                "withdrawal_requests, promotions, coupons RESTART IDENTITY CASCADE"
             )
         )
 
@@ -128,12 +128,17 @@ def sent_emails(monkeypatch: pytest.MonkeyPatch) -> list[SentEmail]:
 def make_user(db: Session) -> Callable[..., User]:
     counter = iter(range(1, 1000))
 
-    def _make(role: UserRole = "customer", email_addr: str | None = None) -> User:
+    def _make(
+        role: UserRole = "customer",
+        email_addr: str | None = None,
+        referral_code: str | None = None,
+    ) -> User:
         user_in = UserCreate(
             email=email_addr or f"user{next(counter)}@ejemplo.com",
             phone="3415551234",
             password=PASSWORD,
             full_name="Cliente de Prueba",
+            referral_code=referral_code,
         )
         return create_user(db, user_in, role=role)
 
@@ -181,3 +186,14 @@ def order_body(*items: tuple[int, int]) -> dict:
         "items": [{"productId": product_id, "qty": qty} for product_id, qty in items],
         "shipping": dict(SHIPPING),
     }
+
+
+def image_bytes(fmt: str = "PNG", size: tuple[int, int] = (800, 600), **save_kwargs) -> bytes:
+    """Imagen real (Pillow) para los tests de subida."""
+    import io
+
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.new("RGB", size, (200, 30, 30)).save(buffer, fmt, **save_kwargs)
+    return buffer.getvalue()

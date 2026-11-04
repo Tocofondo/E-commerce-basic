@@ -32,6 +32,8 @@ export interface RegisterData {
   phone: string;
   password: string;
   fullName?: string;
+  /** Código de quien lo invitó (`/register?ref=...`). */
+  referralCode?: string | null;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -85,6 +87,7 @@ export class AuthService {
           phone: data.phone,
           password: data.password,
           full_name: data.fullName || null,
+          referral_code: data.referralCode || null,
         }),
       );
     } catch (err) {

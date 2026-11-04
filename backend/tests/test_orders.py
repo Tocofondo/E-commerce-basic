@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from app.modules.orders.models import OrderItem
 from app.modules.products.models import Product
-from tests.conftest import API, auth_headers, order_body
+from tests.conftest import API, auth_headers, image_bytes, order_body
 
 
 def _place(client, user, *items):
@@ -179,12 +179,14 @@ def test_order_item_stores_relative_image_path(client, db, admin, customer, make
     product = make_product()
     client.post(
         f"{API}/products/{product.id}/images",
-        files=[("files", ("foto.png", b"\x89PNG\r\n\x1a\n" + b"\x00" * 8, "image/png"))],
+        files=[("files", ("foto.png", image_bytes(), "image/png"))],
         headers=auth_headers(admin),
     )
     res = _place(client, customer, (product.id, 1))
     stored = db.scalar(select(OrderItem.product_image))
     assert stored.startswith(f"/static/products/{product.id}/")
+    # El pedido guarda la miniatura (solo la muestra en chico).
+    assert stored.endswith("-thumb.webp")
     assert res.json()["items"][0]["productImage"] == f"http://api.test{stored}"
     assert db.scalar(select(OrderItem.unit_price)) == Decimal("1000.00")
 

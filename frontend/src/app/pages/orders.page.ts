@@ -55,9 +55,22 @@ const HIGHLIGHTED: OrderStatus[] = ['pagado', 'enviado', 'entregado'];
                   }
                 </ul>
 
+                @if (order.discountTotal > 0) {
+                  <ul class="text-sm flex flex-col gap-1" style="color: var(--vy-verde)">
+                    @for (d of order.discounts; track d.label) {
+                      <li class="flex justify-between gap-3"><span>{{ d.label }}</span><span>−{{ d.amount | pesos }}</span></li>
+                    }
+                  </ul>
+                }
+
                 <div class="flex justify-between items-center gap-3 border-t border-border pt-3">
                   <span class="text-sm vy-muted">{{ order.shipping.address }}, {{ order.shipping.city }}</span>
-                  <span class="vy-heavy text-lg whitespace-nowrap">{{ order.total | pesos }}</span>
+                  <span class="flex items-baseline gap-2">
+                    @if (order.discountTotal > 0) {
+                      <span class="vy-precio-anterior">{{ order.subtotal | pesos }}</span>
+                    }
+                    <span class="vy-heavy text-lg whitespace-nowrap">{{ order.total | pesos }}</span>
+                  </span>
                 </div>
 
                 <!-- Solo mientras está pendiente: ya pagado lo resuelve el admin. -->

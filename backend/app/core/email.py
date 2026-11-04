@@ -9,6 +9,7 @@ local sin depender de credenciales de correo reales.
 
 import logging
 import smtplib
+from decimal import Decimal
 from email.message import EmailMessage
 from typing import TYPE_CHECKING
 
@@ -16,7 +17,9 @@ from app.core.config import settings
 from app.core.formatting import format_pesos
 
 if TYPE_CHECKING:
+    from app.modules.auth.models import User
     from app.modules.orders.models import Order
+    from app.modules.promotions.models import Coupon
     from app.modules.withdrawals.models import WithdrawalRequest
 
 logger = logging.getLogger(__name__)
@@ -63,8 +66,15 @@ def _order_summary(order: "Order") -> str:
         f"- {item.qty}x {item.product_name} ({format_pesos(item.unit_price)} c/u)"
         for item in order.items
     )
+    discounts = "".join(
+        f"Descuento {d['label']}: -{format_pesos(Decimal(d['amount']))}\n"
+        for d in order.discounts or []
+    )
+    if discounts:
+        discounts = f"Subtotal: {format_pesos(order.subtotal)}\n{discounts}"
     return (
         f"{items}\n"
+        f"{discounts}"
         f"Total: {format_pesos(order.total)}\n\n"
         f"Envío a: {order.shipping_full_name}\n"
         f"{order.shipping_address}, {order.shipping_city} (CP {order.shipping_postal_code})\n"
@@ -125,6 +135,22 @@ def build_order_cancelled_email(order: "Order") -> tuple[str, str, str] | None:
         f"Pedido #{order.id} cancelado por el cliente - {settings.STORE_NAME}",
         f"{order.customer_email} canceló el pedido #{order.id}. El stock ya se repuso.\n\n"
         f"{_order_summary(order)}",
+    )
+
+
+def build_referral_reward_email(user: "User", coupon: "Coupon") -> tuple[str, str, str]:
+    """Aviso a quien invitó: ganó un cupón para su próxima compra."""
+    percent = f"{coupon.percent.normalize():f}%"
+    expires = coupon.expires_at.strftime("%d/%m/%Y") if coupon.expires_at else None
+    return (
+        user.email,
+        f"Ganaste un {percent} de descuento - {settings.STORE_NAME}",
+        f"¡Gracias por recomendarnos! Alguien que invitaste recibió su primer pedido, "
+        f"así que tenés un {percent} de descuento en tu próxima compra.\n\n"
+        f"Tu cupón: {coupon.code}\n"
+        + (f"Vence el {expires}.\n" if expires else "")
+        + "Es personal: usalo ingresando con tu cuenta en el checkout.\n\n"
+        f"{settings.FRONTEND_URL}/productos",
     )
 
 

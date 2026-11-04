@@ -9,8 +9,8 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, func, text
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db.base import Base
@@ -44,7 +44,22 @@ class Order(Base):
     # teléfono). Lowercase, como `users.email`.
     customer_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[OrderStatus] = mapped_column(String(20), default="pendiente", nullable=False)
+    # subtotal (precio de lista) - discount_total = total (lo que se cobra).
+    subtotal: Mapped[Decimal] = mapped_column(MONEY_COLUMN, nullable=False)
+    discount_total: Mapped[Decimal] = mapped_column(
+        MONEY_COLUMN, nullable=False, default=Decimal("0"), server_default="0"
+    )
     total: Mapped[Decimal] = mapped_column(MONEY_COLUMN, nullable=False)
+    # Desglose al momento de la compra: [{"label": ..., "amount": "123.45"}].
+    # Snapshot (como los items): no cambia si después se edita la promo.
+    discounts: Mapped[list[dict]] = mapped_column(
+        JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
+    )
+    # Cupón usado: el id para liberarlo si se cancela, el código como snapshot.
+    coupon_id: Mapped[int | None] = mapped_column(
+        ForeignKey("coupons.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    coupon_code: Mapped[str | None] = mapped_column(String(40), nullable=True)
     # Datos de envío aplanados (no una tabla aparte): un pedido tiene un solo
     # destino y no se reusa entre pedidos.
     shipping_full_name: Mapped[str] = mapped_column(String(255), nullable=False)

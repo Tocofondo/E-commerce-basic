@@ -6,6 +6,8 @@ import { PRODUCT_IMAGE_PLACEHOLDER } from '../config/app.config.constants';
 import { CartItem } from '../models/cart.model';
 import { Order, OrderStatus, ShippingInfo } from '../models/order.model';
 import { apiErrorMessage } from '../http-error';
+import { AppliedDiscount } from '../models/promotion.model';
+import { cartItemsBody } from './promotion.service';
 
 // Transiciones de estado que acepta el backend (mismo mapa que
 // ALLOWED_TRANSITIONS en backend/app/modules/orders/service.py).
@@ -34,7 +36,11 @@ interface OrderResponse {
   userId: string | null;
   customerEmail: string | null;
   status: OrderStatus;
+  subtotal: number;
+  discountTotal: number;
   total: number;
+  discounts: AppliedDiscount[];
+  couponCode: string | null;
   createdAt: string;
   items: OrderItemResponse[];
   shipping: ShippingInfo;
@@ -49,6 +55,10 @@ function toOrder(res: OrderResponse): Order {
     id: res.id,
     userId: res.userId,
     customerEmail: res.customerEmail,
+    subtotal: res.subtotal,
+    discountTotal: res.discountTotal,
+    discounts: res.discounts,
+    couponCode: res.couponCode,
     total: res.total,
     status: res.status,
     createdAt: res.createdAt,
@@ -83,12 +93,18 @@ export class OrderService {
 
   /** Crea el pedido para el usuario autenticado (el backend lo infiere del
    * token) o, sin sesión, como invitado con el `email` que dejó (logueado se
-   * ignora: va el de la cuenta). */
-  async place(items: CartItem[], shipping: ShippingInfo, email: string | null = null): Promise<Order> {
+   * ignora: va el de la cuenta). El backend aplica promociones y el cupón. */
+  async place(
+    items: CartItem[],
+    shipping: ShippingInfo,
+    email: string | null = null,
+    couponCode: string | null = null,
+  ): Promise<Order> {
     const body = {
-      items: items.map(i => ({ productId: Number(i.product.id), qty: i.qty })),
+      items: cartItemsBody(items),
       shipping,
       email,
+      couponCode: couponCode || null,
     };
     const res = await firstValueFrom(
       this.http.post<OrderResponse>(`${API_BASE_URL}/orders`, body),

@@ -26,6 +26,10 @@ import { AuthService } from '../core/services/auth.service';
              class="px-3 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 transition-colors">
             Pedidos
           </a>
+          <a routerLink="/admin/promociones" routerLinkActive="bg-brand-50 text-brand-700"
+             class="px-3 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 transition-colors">
+            Promociones
+          </a>
           <a routerLink="/admin/arrepentimientos" routerLinkActive="bg-brand-50 text-brand-700"
              class="px-3 py-2 rounded-lg text-sm font-medium text-neutral-600 hover:bg-neutral-100 transition-colors">
             Arrepentimientos

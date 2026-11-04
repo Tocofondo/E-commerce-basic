@@ -28,6 +28,9 @@ class UserCreate(BaseModel):
     phone: ArPhone
     password: str = Field(min_length=8, max_length=128)
     full_name: str | None = Field(default=None, max_length=255)
+    # Código de quien lo invitó (`/register?ref=...`). Uno inválido se ignora:
+    # un link mal copiado no tiene que trabar el registro.
+    referral_code: str | None = Field(default=None, max_length=16)
     # Sin campo `role`: el registro público siempre crea "customer".
     # Un admin se crea por seed/consola, no por este endpoint.
 
@@ -41,6 +44,8 @@ class UserRead(BaseModel):
     full_name: str | None
     role: UserRole
     is_active: bool
+    # Su código para invitar (link: /register?ref=<code>).
+    referral_code: str
 
 
 class Token(BaseModel):

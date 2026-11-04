@@ -5,6 +5,7 @@ import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from starlette.types import Scope
 
 from app.api.v1.router import api_router
 from app.core.config import INSECURE_DEFAULT_SECRET_KEY, settings
@@ -12,6 +13,18 @@ from app.core.logging import setup_logging
 
 setup_logging()
 logger = logging.getLogger(__name__)
+
+
+class ImmutableStaticFiles(StaticFiles):
+    """Las imágenes de producto nunca cambian de contenido: cada subida es un
+    archivo nuevo con nombre UUID. El navegador (y cualquier CDN delante) las
+    puede cachear un año sin volver a preguntar."""
+
+    async def get_response(self, path: str, scope: Scope):
+        response = await super().get_response(path, scope)
+        if response.status_code == 200:
+            response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return response
 
 
 def create_app() -> FastAPI:
@@ -50,7 +63,7 @@ def create_app() -> FastAPI:
     settings.STATIC_DIR.mkdir(parents=True, exist_ok=True)
     app.mount(
         settings.STATIC_URL_PREFIX,
-        StaticFiles(directory=settings.STATIC_DIR),
+        ImmutableStaticFiles(directory=settings.STATIC_DIR),
         name="static",
     )
 

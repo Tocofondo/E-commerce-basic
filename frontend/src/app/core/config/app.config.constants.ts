@@ -15,9 +15,12 @@ export const SELLER = {
   dataFiscalUrl: '',
 };
 
-// Redes de la tienda. Las que queden vacías no se muestran en el pie.
-export const SOCIAL_LINKS: { label: string; href: string }[] = [
-  { label: 'Instagram', href: '' },
+// Redes de la tienda, con su ícono en el pie. Las que queden vacías no se
+// muestran. WhatsApp no va acá: sale de ADMIN_WHATSAPP (abajo).
+export const SOCIAL_LINKS: { label: string; href: string; network: 'instagram' | 'tiktok' | 'facebook' }[] = [
+  { label: 'Instagram', href: '', network: 'instagram' }, // ej. https://www.instagram.com/vaconyapa
+  { label: 'TikTok', href: '', network: 'tiktok' }, // ej. https://www.tiktok.com/@vaconyapa
+  { label: 'Facebook', href: '', network: 'facebook' }, // ej. https://www.facebook.com/vaconyapa
 ];
 
 // Número de WhatsApp del admin, formato internacional sin "+" ni espacios (ej. 5493811234567).

@@ -15,6 +15,7 @@ from app.core.money import Money
 from app.core.phone import ArPhone
 from app.core.urls import public_url
 from app.modules.auth.schemas import NormalizedEmail
+from app.modules.promotions.schemas import AppliedDiscount
 
 # Mismos valores que `OrderStatus` en el frontend.
 OrderStatus = Literal["pendiente", "pagado", "enviado", "entregado", "cancelado"]
@@ -47,9 +48,33 @@ class OrderCreate(BaseModel):
     shipping: ShippingInfo
     # Solo cuenta para invitados: logueado se usa el email de la cuenta.
     email: NormalizedEmail | None = None
+    coupon_code: str | None = Field(default=None, max_length=40)
 
     def has_contact(self, account_email: str | None) -> bool:
         return bool(account_email or self.email or self.shipping.phone)
+
+
+class OrderQuoteRequest(BaseModel):
+    """Lo mismo que se va a mandar al confirmar, para mostrar el total con
+    descuentos antes (carrito y checkout)."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    items: list[OrderItemCreate] = Field(min_length=1)
+    coupon_code: str | None = Field(default=None, max_length=40)
+    # Invitado: para chequear "un uso por comprador" del cupón.
+    email: NormalizedEmail | None = None
+
+
+class OrderQuote(BaseModel):
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    subtotal: Money
+    discounts: list[AppliedDiscount]
+    discount_total: Money
+    total: Money
+    # El cupón no aplica (vencido, monto mínimo...): el presupuesto vino sin él.
+    coupon_error: str | None = None
 
 
 class OrderStatusUpdate(BaseModel):
@@ -80,7 +105,11 @@ class OrderRead(BaseModel):
     # Para que el admin pueda escribirle al cliente (ver Order.customer_email).
     customer_email: str | None = None
     status: OrderStatus
+    subtotal: Money
+    discount_total: Money
     total: Money
+    discounts: list[AppliedDiscount]
+    coupon_code: str | None
     created_at: datetime
     items: list[OrderItemRead]
     shipping: ShippingInfo

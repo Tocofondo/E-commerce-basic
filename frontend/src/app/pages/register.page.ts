@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DsInput } from '../design-system/index';
 import { VyLogoComponent } from '../shared/brand/vy-logo.component';
 import { AuthService } from '../core/services/auth.service';
@@ -17,6 +17,9 @@ import { INVALID_PHONE_MESSAGE, normalizeArPhone } from '../core/phone';
         <div class="text-center">
           <h1 class="text-2xl leading-tight"><span class="vy-marker">Creá</span> <span class="vy-heavy">tu cuenta</span></h1>
           <p class="text-sm text-neutral-500 mt-1">Registrate en VACONYAPA</p>
+          @if (referralCode) {
+            <p class="text-sm mt-2 vy-muted">Te invitaron a VACONYAPA 💚</p>
+          }
         </div>
 
         <form class="flex flex-col gap-4" (ngSubmit)="onSubmit()">
@@ -86,6 +89,9 @@ export class RegisterPage {
   private auth = inject(AuthService);
   private router = inject(Router);
 
+  /** De un link de invitación (`/register?ref=CODIGO`, ver perfil). */
+  referralCode = inject(ActivatedRoute).snapshot.queryParamMap.get('ref');
+
   fullName = '';
   email = '';
   phone = '';
@@ -119,6 +125,7 @@ export class RegisterPage {
         phone,
         password: this.password,
         fullName: this.fullName,
+        referralCode: this.referralCode,
       });
     } finally {
       this.loading.set(false);

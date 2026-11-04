@@ -9,7 +9,13 @@ from sqlalchemy.orm import Session
 from app.core.db.session import get_db
 from app.modules.auth.dependencies import get_current_admin_user
 from app.modules.products.models import Product, ProductImage
-from app.modules.products.schemas import ProductCreate, ProductImageRead, ProductRead, ProductUpdate
+from app.modules.products.schemas import (
+    ImageOrderUpdate,
+    ProductCreate,
+    ProductImageRead,
+    ProductRead,
+    ProductUpdate,
+)
 from app.modules.products.service import (
     InvalidImageError,
     ProductImageNotFoundError,
@@ -20,6 +26,7 @@ from app.modules.products.service import (
     delete_product_image,
     get_product,
     list_products,
+    reorder_product_images,
     update_product,
 )
 
@@ -113,6 +120,23 @@ def upload_images(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     logger.info("Subidas %s imagen(es) al producto %s", len(images), product_id)
     return images
+
+
+@router.put("/{product_id}/images/order", response_model=ProductRead)
+def reorder_images(
+    product_id: int,
+    body: ImageOrderUpdate,
+    db: Session = Depends(get_db),
+    _admin=Depends(get_current_admin_user),
+) -> Product:
+    try:
+        return reorder_product_images(db, product_id, body.image_ids)
+    except ProductNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Producto no encontrado"
+        ) from exc
+    except InvalidImageError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 
 @router.delete("/{product_id}/images/{image_id}", status_code=status.HTTP_204_NO_CONTENT)

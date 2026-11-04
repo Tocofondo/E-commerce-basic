@@ -102,13 +102,22 @@ import { Order, OrderStatus } from '../../core/models/order.model';
                           <ul class="flex flex-col gap-2">
                             @for (item of order.items; track $index) {
                               <li class="flex items-center gap-3">
-                                <img [src]="item.product.image" [alt]="item.product.name" class="w-10 h-10 rounded-lg object-cover" />
+                                <img [src]="item.product.image" [alt]="item.product.name" loading="lazy" decoding="async" class="w-10 h-10 rounded-lg object-cover" />
                                 <span class="flex-1 text-neutral-800">{{ item.qty }}x {{ item.product.name }}</span>
                                 <span class="text-neutral-500">{{ item.product.price | number: '1.2-2' }} c/u</span>
                                 <span class="text-neutral-800 font-medium w-24 text-right">{{ item.product.price * item.qty | number: '1.2-2' }}</span>
                               </li>
                             }
                           </ul>
+                          @if (order.discountTotal > 0) {
+                            <div class="mt-3 border-t border-border pt-2 flex flex-col gap-1 text-sm">
+                              <div class="flex justify-between text-neutral-600"><span>Subtotal</span><span>{{ order.subtotal | number: '1.2-2' }}</span></div>
+                              @for (d of order.discounts; track d.label) {
+                                <div class="flex justify-between text-success"><span>{{ d.label }}</span><span>−{{ d.amount | number: '1.2-2' }}</span></div>
+                              }
+                              <div class="flex justify-between font-medium text-neutral-800"><span>Total</span><span>{{ order.total | number: '1.2-2' }}</span></div>
+                            </div>
+                          }
                         </div>
                         <div class="flex flex-col gap-3">
                           <div>

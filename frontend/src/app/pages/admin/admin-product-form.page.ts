@@ -6,14 +6,18 @@ import { ProductService } from '../../core/services/product.service';
 import { ProductImage, ProductInput } from '../../core/models/product.model';
 import { apiErrorMessage } from '../../core/http-error';
 import { BadgeVariant } from '../../design-system/index';
+import { ImagePrepareError, prepareImageForUpload } from '../../core/image-upload';
 
-// Debe coincidir con lo que valida el backend (ALLOWED_IMAGE_TYPES /
-// MAX_IMAGE_SIZE_MB / MAX_IMAGES_PER_PRODUCT en
-// backend/app/modules/products/service.py): esto es solo feedback
-// inmediato en el form, la validación real es del servidor.
-const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+// Mismo valor que MAX_IMAGES_PER_PRODUCT en backend/app/modules/products/
+// service.py: esto es solo feedback inmediato, la validación real es del
+// servidor (tipo, tamaño y contenido, ver products/images.py).
 const MAX_IMAGES_PER_PRODUCT = 4;
+
+/** Imagen elegida que todavía no se subió (se sube al guardar). */
+interface PendingImage {
+  file: File;
+  preview: string;
+}
 
 // Etiquetas que se pueden asignar a mano ('out-of-stock' no: eso lo decide
 // el stock). Mismos valores que BadgeVariant en el backend.
@@ -36,51 +40,67 @@ const BADGE_OPTIONS: { variant: BadgeVariant; label: string }[] = [
         <ds-input label="Categoría" [required]="true" [(ngModel)]="form.category" name="category" />
 
         <div class="flex flex-col gap-2">
-          <label class="text-sm font-medium text-neutral-700">
+          <span class="text-sm font-medium text-neutral-700">
             Imágenes ({{ imageCount() }}/{{ maxImages }})
-          </label>
+          </span>
 
-          @if (existingImages().length) {
-            <div class="flex flex-wrap gap-2">
-              @for (img of existingImages(); track img.id) {
-                <div class="relative w-16 h-16">
-                  <img [src]="img.url" class="w-16 h-16 object-cover rounded-lg border border-border" alt="" />
-                  <button
-                    type="button"
-                    (click)="onDeleteExistingImage(img.id)"
-                    class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-error text-white rounded-full text-xs leading-none"
-                    aria-label="Eliminar imagen"
-                  >×</button>
-                </div>
+          @if (imageCount() > 0) {
+            <!-- Una sola grilla en el orden final: primero las ya subidas, después
+                 las pendientes (se suben al guardar, en este orden). La primera es
+                 la portada. -->
+            <ul class="grid grid-cols-3 sm:grid-cols-4 gap-3">
+              @for (img of existingImages(); track img.id; let i = $index; let first = $first; let last = $last) {
+                <li class="relative">
+                  <img [src]="img.thumbUrl" class="aspect-square w-full object-cover rounded-lg border border-border bg-neutral-100" alt="" />
+                  @if (first) {
+                    <span class="absolute top-1 left-1 rounded bg-brand-600 text-white text-[10px] font-medium px-1.5 py-0.5">Portada</span>
+                  }
+                  <button type="button" (click)="onDeleteExistingImage(img.id)" class="absolute -top-2 -right-2 w-6 h-6 bg-error text-white rounded-full text-sm leading-none" aria-label="Eliminar imagen">×</button>
+                  <div class="mt-1 flex justify-center gap-1">
+                    <button type="button" class="tile-btn" [disabled]="first || reordering()" (click)="moveExisting(i, -1)" aria-label="Mover antes">◀</button>
+                    @if (!first) {
+                      <button type="button" class="tile-btn" [disabled]="reordering()" (click)="moveExisting(i, -i)" title="Usar de portada" aria-label="Usar de portada">★</button>
+                    }
+                    <button type="button" class="tile-btn" [disabled]="last || reordering()" (click)="moveExisting(i, 1)" aria-label="Mover después">▶</button>
+                  </div>
+                </li>
               }
-            </div>
+              @for (item of pending(); track item.preview; let i = $index; let first = $first; let last = $last) {
+                <li class="relative">
+                  <img [src]="item.preview" class="aspect-square w-full object-cover rounded-lg border border-dashed border-brand-500 bg-neutral-100" alt="" />
+                  @if (first && existingImages().length === 0) {
+                    <span class="absolute top-1 left-1 rounded bg-brand-600 text-white text-[10px] font-medium px-1.5 py-0.5">Portada</span>
+                  }
+                  <span class="absolute bottom-8 left-1 rounded bg-neutral-800/80 text-white text-[10px] px-1.5 py-0.5">Sin subir</span>
+                  <button type="button" (click)="removePending(i)" class="absolute -top-2 -right-2 w-6 h-6 bg-error text-white rounded-full text-sm leading-none" aria-label="Quitar">×</button>
+                  <div class="mt-1 flex justify-center gap-1">
+                    <button type="button" class="tile-btn" [disabled]="first" (click)="movePending(i, -1)" aria-label="Mover antes">◀</button>
+                    <button type="button" class="tile-btn" [disabled]="last" (click)="movePending(i, 1)" aria-label="Mover después">▶</button>
+                  </div>
+                </li>
+              }
+            </ul>
           }
 
-          @if (pendingPreviews().length) {
-            <div class="flex flex-wrap gap-2">
-              @for (preview of pendingPreviews(); track $index) {
-                <div class="relative w-16 h-16">
-                  <img [src]="preview" class="w-16 h-16 object-cover rounded-lg border border-border" alt="" />
-                  <button
-                    type="button"
-                    (click)="removePendingFile($index)"
-                    class="absolute -top-1.5 -right-1.5 w-5 h-5 bg-error text-white rounded-full text-xs leading-none"
-                    aria-label="Quitar"
-                  >×</button>
-                </div>
-              }
-            </div>
+          @if (imageCount() < maxImages) {
+            <label
+              class="flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed px-4 py-6 text-center cursor-pointer transition-colors"
+              [class.border-brand-500]="dragging()"
+              [class.bg-brand-50]="dragging()"
+              [class.border-border]="!dragging()"
+              (dragover)="onDragOver($event)"
+              (dragleave)="dragging.set(false)"
+              (drop)="onDrop($event)"
+            >
+              <span class="text-sm font-medium text-neutral-700">
+                @if (preparing()) { Preparando imágenes… } @else { Arrastrá fotos acá o tocá para elegir }
+              </span>
+              <span class="text-xs text-neutral-500">
+                JPG, PNG, WEBP o GIF (HEIC del iPhone también, desde Safari). Se achican y optimizan solas.
+              </span>
+              <input type="file" accept="image/*" multiple class="sr-only" [disabled]="preparing()" (change)="onFilesSelected($event)" />
+            </label>
           }
-
-          <input
-            type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif"
-            multiple
-            [disabled]="imageCount() >= maxImages"
-            (change)="onFilesSelected($event)"
-            class="text-sm text-neutral-600 disabled:opacity-50"
-          />
-          <p class="text-xs text-neutral-500">PNG, JPG, WEBP o GIF. Máximo 5MB por archivo, hasta {{ maxImages }} imágenes por producto.</p>
           @if (imageError()) {
             <p class="text-xs text-error">{{ imageError() }}</p>
           }
@@ -123,12 +143,23 @@ const BADGE_OPTIONS: { variant: BadgeVariant; label: string }[] = [
           }
         </div>
 
+        @if (uploadProgress() !== null) {
+          <div class="flex flex-col gap-1" role="status">
+            <span class="text-xs text-neutral-500">
+              @if (uploadProgress()! < 1) { Subiendo imágenes… {{ uploadPercent() }}% } @else { Procesando imágenes… }
+            </span>
+            <div class="h-1.5 rounded-full bg-neutral-100 overflow-hidden">
+              <div class="h-full bg-brand-500 transition-[width]" [style.width.%]="uploadPercent()"></div>
+            </div>
+          </div>
+        }
+
         @if (error()) {
           <p class="text-sm text-error">{{ error() }}</p>
         }
 
         <div class="flex gap-3 mt-2">
-          <ds-button variant="primary" type="submit" [loading]="loading()">Guardar</ds-button>
+          <ds-button variant="primary" type="submit" [loading]="loading()" [disabled]="preparing()">Guardar</ds-button>
           <a routerLink="/admin/productos">
             <ds-button variant="ghost" type="button">Cancelar</ds-button>
           </a>
@@ -136,6 +167,21 @@ const BADGE_OPTIONS: { variant: BadgeVariant; label: string }[] = [
       </form>
     </div>
   `,
+  styles: [
+    `
+      .tile-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 6px;
+        border: 1px solid var(--color-border, #e5e5e5);
+        font-size: 12px;
+        line-height: 1;
+        color: #525252;
+        background: white;
+      }
+      .tile-btn:disabled { opacity: 0.35; }
+    `,
+  ],
 })
 export class AdminProductFormPage implements OnDestroy {
   private route = inject(ActivatedRoute);
@@ -163,10 +209,16 @@ export class AdminProductFormPage implements OnDestroy {
 
   maxImages = MAX_IMAGES_PER_PRODUCT;
   existingImages = signal<ProductImage[]>([]);
-  pendingFiles = signal<File[]>([]);
-  pendingPreviews = signal<string[]>([]);
-  imageCount = computed(() => this.existingImages().length + this.pendingFiles().length);
+  pending = signal<PendingImage[]>([]);
+  imageCount = computed(() => this.existingImages().length + this.pending().length);
   imageError = signal('');
+  /** Achicando/convirtiendo en el navegador las fotos recién elegidas. */
+  preparing = signal(false);
+  reordering = signal(false);
+  dragging = signal(false);
+  /** 0..1 mientras se suben las pendientes; null si no hay subida en curso. */
+  uploadProgress = signal<number | null>(null);
+  uploadPercent = computed(() => Math.round((this.uploadProgress() ?? 0) * 100));
 
   error = signal('');
   loading = signal(false);
@@ -181,7 +233,7 @@ export class AdminProductFormPage implements OnDestroy {
   }
 
   ngOnDestroy(): void {
-    for (const url of this.pendingPreviews()) URL.revokeObjectURL(url);
+    for (const item of this.pending()) URL.revokeObjectURL(item.preview);
   }
 
   /** El producto puede no estar aún en memoria si se entra directo a esta
@@ -218,43 +270,81 @@ export class AdminProductFormPage implements OnDestroy {
     const input = event.target as HTMLInputElement;
     const files = Array.from(input.files ?? []);
     input.value = ''; // permite volver a elegir el mismo archivo si se quita y se re-agrega
+    this.addFiles(files);
+  }
 
+  onDragOver(event: DragEvent): void {
+    event.preventDefault(); // sin esto el navegador abre el archivo en vez de soltarlo acá
+    this.dragging.set(true);
+  }
+
+  onDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.dragging.set(false);
+    if (this.preparing()) return;
+    this.addFiles(Array.from(event.dataTransfer?.files ?? []).filter(f => f.type.startsWith('image/') || !f.type));
+  }
+
+  /** Achica/convierte en el navegador (ver core/image-upload.ts) y las suma
+   * como pendientes, respetando el máximo por producto. */
+  private async addFiles(files: File[]): Promise<void> {
+    if (!files.length) return;
     this.imageError.set('');
-    const valid: File[] = [];
-    for (const file of files) {
-      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
-        this.imageError.set(`"${file.name}" no es una imagen válida (solo PNG, JPG, WEBP o GIF).`);
-        continue;
-      }
-      if (file.size > MAX_IMAGE_SIZE_BYTES) {
-        this.imageError.set(`"${file.name}" supera el tamaño máximo de 5MB.`);
-        continue;
-      }
-      valid.push(file);
-    }
-    if (!valid.length) return;
-
-    const currentTotal = this.existingImages().length + this.pendingFiles().length;
-    const slotsLeft = MAX_IMAGES_PER_PRODUCT - currentTotal;
+    const slotsLeft = MAX_IMAGES_PER_PRODUCT - this.imageCount();
     if (slotsLeft <= 0) {
       this.imageError.set(`Este producto ya tiene el máximo de ${MAX_IMAGES_PER_PRODUCT} imágenes.`);
       return;
     }
-    if (valid.length > slotsLeft) {
+    if (files.length > slotsLeft) {
       this.imageError.set(
-        `Solo se agregaron ${slotsLeft} de ${valid.length} imágenes (máximo ${MAX_IMAGES_PER_PRODUCT} por producto).`,
+        `Solo se agregaron ${slotsLeft} de ${files.length} imágenes (máximo ${MAX_IMAGES_PER_PRODUCT} por producto).`,
       );
     }
-    const accepted = valid.slice(0, slotsLeft);
 
-    this.pendingFiles.update(list => [...list, ...accepted]);
-    this.pendingPreviews.update(list => [...list, ...accepted.map(f => URL.createObjectURL(f))]);
+    this.preparing.set(true);
+    try {
+      const prepared: PendingImage[] = [];
+      for (const file of files.slice(0, slotsLeft)) {
+        try {
+          const ready = await prepareImageForUpload(file);
+          prepared.push({ file: ready, preview: URL.createObjectURL(ready) });
+        } catch (err) {
+          this.imageError.set(err instanceof ImagePrepareError ? err.message : `No se pudo leer "${file.name}".`);
+        }
+      }
+      this.pending.update(list => [...list, ...prepared]);
+    } finally {
+      this.preparing.set(false);
+    }
   }
 
-  removePendingFile(index: number): void {
-    URL.revokeObjectURL(this.pendingPreviews()[index]);
-    this.pendingFiles.update(list => list.filter((_, i) => i !== index));
-    this.pendingPreviews.update(list => list.filter((_, i) => i !== index));
+  removePending(index: number): void {
+    URL.revokeObjectURL(this.pending()[index].preview);
+    this.pending.update(list => list.filter((_, i) => i !== index));
+  }
+
+  movePending(index: number, delta: number): void {
+    this.pending.update(list => moved(list, index, delta));
+  }
+
+  /** Reordena las ya subidas (se guarda al toque en el backend; `-index`
+   * la manda primera = portada). Optimista: si falla, vuelve atrás. */
+  async moveExisting(index: number, delta: number): Promise<void> {
+    if (this.editingId === null) return;
+    const before = this.existingImages();
+    const after = moved(before, index, delta);
+    this.existingImages.set(after);
+    this.imageError.set('');
+    this.reordering.set(true);
+    try {
+      const product = await this.productsSrv.reorderImages(this.editingId, after.map(img => img.id));
+      this.existingImages.set(product.images);
+    } catch (err) {
+      this.existingImages.set(before);
+      this.imageError.set(apiErrorMessage(err, 'No se pudo cambiar el orden de las imágenes.'));
+    } finally {
+      this.reordering.set(false);
+    }
   }
 
   async onDeleteExistingImage(imageId: string): Promise<void> {
@@ -324,11 +414,16 @@ export class AdminProductFormPage implements OnDestroy {
         return;
       }
 
-      if (this.pendingFiles().length) {
+      if (this.pending().length) {
+        this.uploadProgress.set(0);
         try {
-          const uploaded = await this.productsSrv.uploadImages(productId, this.pendingFiles());
+          const uploaded = await this.productsSrv.uploadImages(
+            productId,
+            this.pending().map(item => item.file),
+            fraction => this.uploadProgress.set(fraction),
+          );
           this.existingImages.update(list => [...list, ...uploaded]);
-          this.clearPendingFiles();
+          this.clearPending();
         } catch (err) {
           this.error.set(
             apiErrorMessage(
@@ -337,6 +432,8 @@ export class AdminProductFormPage implements OnDestroy {
             ),
           );
           return;
+        } finally {
+          this.uploadProgress.set(null);
         }
       }
 
@@ -346,9 +443,17 @@ export class AdminProductFormPage implements OnDestroy {
     }
   }
 
-  private clearPendingFiles(): void {
-    for (const url of this.pendingPreviews()) URL.revokeObjectURL(url);
-    this.pendingFiles.set([]);
-    this.pendingPreviews.set([]);
+  private clearPending(): void {
+    for (const item of this.pending()) URL.revokeObjectURL(item.preview);
+    this.pending.set([]);
   }
+}
+
+/** Copia de `list` con el elemento `index` movido `delta` lugares. */
+function moved<T>(list: T[], index: number, delta: number): T[] {
+  const target = Math.max(0, Math.min(list.length - 1, index + delta));
+  const copy = [...list];
+  const [item] = copy.splice(index, 1);
+  copy.splice(target, 0, item);
+  return copy;
 }

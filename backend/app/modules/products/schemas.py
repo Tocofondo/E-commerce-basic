@@ -28,7 +28,20 @@ class ProductImageRead(BaseModel):
 
     id: uuid.UUID
     url: str
+    # Versión chica (cards, carrito, admin). Igual a `url` en imágenes viejas.
+    thumb_url: str
+    width: int | None = None
+    height: int | None = None
     position: int
+
+
+class ImageOrderUpdate(BaseModel):
+    """Nuevo orden de la galería: todos los ids de imagen del producto, cada
+    uno una vez. El primero queda de portada."""
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    image_ids: list[uuid.UUID] = Field(min_length=1)
 
 
 class ProductBase(BaseModel):
@@ -92,3 +105,9 @@ class ProductRead(ProductBase):
     @property
     def image(self) -> str:
         return self.images[0].url if self.images else ""
+
+    # Portada en chico, para las cards (`image` sigue siendo la grande).
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def thumb(self) -> str:
+        return self.images[0].thumb_url if self.images else ""

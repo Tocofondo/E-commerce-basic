@@ -14,6 +14,7 @@ dependencies = [
     "python-multipart==0.0.32",
     "alembic==1.19.2",
     "email-validator==2.3.0",
+    "pillow==13.0.0",
 ]
 
 [tool.uv]

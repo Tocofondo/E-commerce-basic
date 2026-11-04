@@ -7,6 +7,8 @@ import { OrderService } from '../core/services/order.service';
 import { AuthService } from '../core/services/auth.service';
 import { WhatsappService } from '../core/services/whatsapp.service';
 import { ProductService } from '../core/services/product.service';
+import { PromotionService, cartQuote } from '../core/services/promotion.service';
+import { MyCoupon } from '../core/models/promotion.model';
 import { apiErrorMessage } from '../core/http-error';
 import { INVALID_PHONE_MESSAGE, normalizeArPhone } from '../core/phone';
 import { Order, ShippingInfo } from '../core/models/order.model';
@@ -119,9 +121,54 @@ import { PesosPipe } from '../shared/store/pesos.pipe';
                 <vy-logo class="shrink-0" variante="sello-simple" alto="36px" />
                 <span class="vy-muted">1x Yapa (regalo)</span>
               </div>
+
+              <!-- Cupón: se valida en el backend con el presupuesto (y de nuevo al confirmar). -->
+              <div class="flex flex-col gap-2 border-t border-border pt-4 mt-2">
+                @if (appliedCoupon()) {
+                  <div class="flex items-center justify-between gap-3 text-sm">
+                    <span>Cupón <strong>{{ appliedCoupon() }}</strong></span>
+                    <button type="button" class="underline vy-muted" (click)="removeCoupon()">Quitar</button>
+                  </div>
+                } @else {
+                  <form class="flex gap-2" (ngSubmit)="applyCoupon()">
+                    <input
+                      class="vy-input flex-1 min-w-0 uppercase"
+                      placeholder="Código de descuento"
+                      aria-label="Código de descuento"
+                      [(ngModel)]="couponInput"
+                      name="coupon"
+                      autocomplete="off"
+                    />
+                    <button type="submit" class="vy-btn vy-btn--secundario vy-btn--chico" [disabled]="!couponInput.trim()">Aplicar</button>
+                  </form>
+                  @for (c of myCoupons(); track c.code) {
+                    <button type="button" class="text-left text-sm underline" style="color: var(--vy-verde)" (click)="useCoupon(c.code)">
+                      Usar tu cupón {{ c.code }} ({{ c.percent }}% off)
+                    </button>
+                  }
+                }
+                @if (quote()?.couponError; as couponError) {
+                  <p class="text-sm text-error">{{ couponError }}</p>
+                }
+              </div>
+
+              @if (quote(); as q) {
+                @if (q.discountTotal > 0) {
+                  <div class="flex justify-between gap-3 text-sm">
+                    <span class="vy-muted">Subtotal</span>
+                    <span class="font-bold whitespace-nowrap">{{ q.subtotal | pesos }}</span>
+                  </div>
+                  @for (d of q.discounts; track d.label) {
+                    <div class="flex justify-between gap-3 text-sm" style="color: var(--vy-verde)">
+                      <span>{{ d.label }}</span>
+                      <span class="font-bold whitespace-nowrap">−{{ d.amount | pesos }}</span>
+                    </div>
+                  }
+                }
+              }
               <div class="flex justify-between items-center border-t border-border pt-4 mt-2">
                 <span class="vy-label">Total</span>
-                <span class="vy-precio">{{ cart.total() | pesos }}</span>
+                <span class="vy-precio">{{ (quote()?.total ?? cart.total()) | pesos }}</span>
               </div>
             </aside>
           </div>
@@ -137,6 +184,14 @@ export class CheckoutPage {
   private products = inject(ProductService);
   private whatsapp = inject(WhatsappService);
   private destroyRef = inject(DestroyRef);
+  private promotions = inject(PromotionService);
+
+  couponInput = '';
+  /** Cupón aplicado (lo que se manda en el presupuesto y en el pedido). */
+  appliedCoupon = signal('');
+  quote = cartQuote(this.appliedCoupon).quote;
+  /** Cupones personales del usuario (premios de referidos), para usarlos con un toque. */
+  myCoupons = signal<MyCoupon[]>([]);
 
   // Nombre y teléfono precargados desde la cuenta (se pueden cambiar si el
   // envío es para otra persona). `name` cae en el email si no cargó nombre.
@@ -168,9 +223,18 @@ export class CheckoutPage {
       this.error.set(INVALID_PHONE_MESSAGE);
       return;
     }
+    if (this.appliedCoupon() && this.quote()?.couponError) {
+      this.error.set('El cupón no se puede usar en esta compra: quitalo o probá con otro.');
+      return;
+    }
     this.loading.set(true);
     try {
-      const order = await this.orders.place(this.cart.items(), { ...this.shipping, phone }, email);
+      const order = await this.orders.place(
+        this.cart.items(),
+        { ...this.shipping, phone },
+        email,
+        this.appliedCoupon() || null,
+      );
       this.cart.clear();
       this.placedOrder.set(order);
       this.redirectToWhatsapp(order);
@@ -187,6 +251,25 @@ export class CheckoutPage {
   }
 
   whatsappEnabled = this.whatsapp.adminConfigured;
+
+  constructor() {
+    if (this.isLoggedIn) {
+      this.promotions.myCoupons().then(list => this.myCoupons.set(list)).catch(() => {});
+    }
+  }
+
+  applyCoupon(): void {
+    this.useCoupon(this.couponInput);
+  }
+
+  useCoupon(code: string): void {
+    this.appliedCoupon.set(code.trim().toUpperCase());
+    this.couponInput = '';
+  }
+
+  removeCoupon(): void {
+    this.appliedCoupon.set('');
+  }
 
   whatsappLink(order: Order): string {
     return this.whatsapp.buildOrderLink(order);

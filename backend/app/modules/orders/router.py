@@ -9,7 +9,12 @@ from sqlalchemy.orm import Session
 
 from app.core import rate_limit
 from app.core.db.session import get_db
-from app.core.email import build_order_cancelled_email, build_order_emails, send_email_safe
+from app.core.email import (
+    build_order_cancelled_email,
+    build_order_emails,
+    build_referral_reward_email,
+    send_email_safe,
+)
 from app.modules.auth.dependencies import (
     get_current_active_user,
     get_current_admin_user,
@@ -17,7 +22,13 @@ from app.modules.auth.dependencies import (
 )
 from app.modules.auth.models import User
 from app.modules.orders.models import Order
-from app.modules.orders.schemas import OrderCreate, OrderRead, OrderStatusUpdate
+from app.modules.orders.schemas import (
+    OrderCreate,
+    OrderQuote,
+    OrderQuoteRequest,
+    OrderRead,
+    OrderStatusUpdate,
+)
 from app.modules.orders.service import (
     InsufficientStockError,
     InvalidStatusTransitionError,
@@ -29,8 +40,10 @@ from app.modules.orders.service import (
     create_order,
     list_all_orders,
     list_orders_by_user,
+    quote_order,
     update_order_status,
 )
+from app.modules.promotions.service import CouponError
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +52,35 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 # Invitados: público, descuenta stock y manda mails. Sin límite alguien podría
 # "reservar" todo el stock con pedidos falsos.
 GUEST_IP_LIMIT = (10, 3600)
+# Probar códigos de cupón: sin límite se podrían adivinar por fuerza bruta.
+COUPON_QUOTE_IP_LIMIT = (30, 600)
+
+
+@router.post("/quote", response_model=OrderQuote)
+def quote(
+    request: Request,
+    body: OrderQuoteRequest,
+    db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_active_user),
+) -> OrderQuote:
+    if body.coupon_code:
+        rate_limit.hit(f"coupon-quote:ip:{rate_limit.client_ip(request)}", *COUPON_QUOTE_IP_LIMIT)
+    try:
+        result, coupon_error = quote_order(
+            db, current_user, body.items, body.coupon_code, body.email
+        )
+    except ProductNotFoundError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Uno de los productos del carrito ya no existe en el catálogo",
+        ) from exc
+    return OrderQuote(
+        subtotal=result.subtotal,
+        discounts=[{"label": label, "amount": amount} for label, amount in result.discounts],
+        discount_total=result.discount_total,
+        total=result.total,
+        coupon_error=coupon_error,
+    )
 
 
 @router.post("", response_model=OrderRead, status_code=status.HTTP_201_CREATED)
@@ -63,7 +105,7 @@ def create(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Uno de los productos del pedido ya no existe en el catálogo",
         ) from exc
-    except InsufficientStockError as exc:
+    except (InsufficientStockError, CouponError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     logger.info(
         "Pedido #%s creado por %s",
@@ -121,14 +163,19 @@ def list_all(
 def update_status(
     order_id: int,
     status_in: OrderStatusUpdate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin_user),
 ) -> Order:
     try:
-        return update_order_status(db, order_id, status_in.status)
+        order, reward = update_order_status(db, order_id, status_in.status)
     except OrderNotFoundError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Pedido no encontrado"
         ) from exc
     except InvalidStatusTransitionError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    if reward is not None:
+        referrer, coupon = reward
+        background_tasks.add_task(send_email_safe, *build_referral_reward_email(referrer, coupon))
+    return order

@@ -3,7 +3,9 @@ import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/rou
 import { AuthService } from '../core/services/auth.service';
 import { CartService } from '../core/services/cart.service';
 import { VyLogoComponent } from '../shared/brand/vy-logo.component';
-import { SELLER, SOCIAL_LINKS, STORE_NAME } from '../core/config/app.config.constants';
+import { ADMIN_WHATSAPP, SELLER, SOCIAL_LINKS, STORE_NAME } from '../core/config/app.config.constants';
+import { WhatsappService } from '../core/services/whatsapp.service';
+import { SocialIconComponent, SocialNetwork } from '../shared/store/social-icon';
 
 interface StoreLink {
   label: string;
@@ -17,7 +19,7 @@ interface StoreLink {
 @Component({
   selector: 'app-store-layout',
   standalone: true,
-  imports: [RouterOutlet, RouterLink, RouterLinkActive, VyLogoComponent],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive, VyLogoComponent, SocialIconComponent],
   host: { class: 'vy-oscuro vy-tienda' },
   template: `
     <header class="barra">
@@ -82,7 +84,9 @@ interface StoreLink {
           @if (socials.length) {
             <div class="redes">
               @for (social of socials; track social.label) {
-                <a [href]="social.href" target="_blank" rel="noopener">{{ social.label }}</a>
+                <a [href]="social.href" target="_blank" rel="noopener" [attr.aria-label]="social.label" [title]="social.label">
+                  <app-social-icon [network]="social.network" />
+                </a>
               }
             </div>
           }
@@ -189,9 +193,20 @@ interface StoreLink {
         .pie-in { grid-template-columns: 2fr 1fr 1fr 1fr; }
         .pie-marca { grid-column: auto; }
       }
-      .redes { display: flex; gap: var(--vy-space-4); }
-      .redes a { color: var(--vy-texto-suave); font-size: var(--vy-fs-sm); font-weight: 700; text-decoration: none; }
-      .redes a:hover { color: var(--vy-verde); }
+      .redes { display: flex; gap: var(--vy-space-2); }
+      /* 44px: área táctil cómoda en el celu. */
+      .redes a {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        border: 1px solid var(--vy-borde);
+        color: var(--vy-texto-suave);
+        transition: color 0.15s, border-color 0.15s;
+      }
+      .redes a:hover { color: var(--vy-verde); border-color: var(--vy-verde); }
       .pie-columna { display: flex; flex-direction: column; gap: var(--vy-space-2); }
       .pie-columna a { color: var(--vy-texto-suave); text-decoration: none; font-size: var(--vy-fs-sm); }
       .pie-columna a:hover { color: var(--vy-verde); }
@@ -243,7 +258,13 @@ export class StoreLayout {
 
   seller = SELLER;
   storeName = STORE_NAME;
-  socials = SOCIAL_LINKS.filter(s => s.href);
+  socials: { label: string; href: string; network: SocialNetwork }[] = [
+    ...SOCIAL_LINKS.filter(s => s.href),
+    // Con el número todavía en placeholder no se muestra (abriría un chat inexistente).
+    ...(inject(WhatsappService).adminConfigured
+      ? [{ label: 'WhatsApp', href: `https://wa.me/${ADMIN_WHATSAPP}`, network: 'whatsapp' as const }]
+      : []),
+  ];
 
   onAccountClick(): void {
     this.router.navigate([this.auth.isLoggedIn() ? '/perfil' : '/login']);
