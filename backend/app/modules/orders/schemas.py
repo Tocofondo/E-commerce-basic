@@ -14,6 +14,7 @@ from pydantic.alias_generators import to_camel
 from app.core.money import Money
 from app.core.phone import ArPhone
 from app.core.urls import public_url
+from app.modules.auth.schemas import NormalizedEmail
 
 # Mismos valores que `OrderStatus` en el frontend.
 OrderStatus = Literal["pendiente", "pagado", "enviado", "entregado", "cancelado"]
@@ -23,7 +24,8 @@ class ShippingInfo(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     full_name: str = Field(min_length=1, max_length=255)
-    phone: ArPhone
+    # Opcional: alcanza con email o teléfono (ver OrderCreate).
+    phone: ArPhone | None = None
     address: str = Field(min_length=1, max_length=255)
     city: str = Field(min_length=1, max_length=100)
     postal_code: str = Field(min_length=1, max_length=20)
@@ -39,10 +41,15 @@ class OrderItemCreate(BaseModel):
 class OrderCreate(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
-    # `userId` no es parte de este schema a propósito: el pedido siempre se
-    # crea para el usuario autenticado (ver router.py), nunca para otro.
+    # `userId` no es parte de este schema a propósito: el pedido se crea para
+    # el usuario autenticado (ver router.py) o como invitado, nunca para otro.
     items: list[OrderItemCreate] = Field(min_length=1)
     shipping: ShippingInfo
+    # Solo cuenta para invitados: logueado se usa el email de la cuenta.
+    email: NormalizedEmail | None = None
+
+    def has_contact(self, account_email: str | None) -> bool:
+        return bool(account_email or self.email or self.shipping.phone)
 
 
 class OrderStatusUpdate(BaseModel):
@@ -68,7 +75,8 @@ class OrderRead(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True, from_attributes=True)
 
     id: int
-    user_id: uuid.UUID
+    # None = compra como invitado.
+    user_id: uuid.UUID | None
     # Para que el admin pueda escribirle al cliente (ver Order.customer_email).
     customer_email: str | None = None
     status: OrderStatus

@@ -9,6 +9,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
+from app.modules.auth.models import User
 from app.modules.orders.models import Order, OrderItem
 from app.modules.orders.schemas import OrderCreate, OrderStatus
 from app.modules.products.models import Product
@@ -68,10 +69,23 @@ class InsufficientStockError(Exception):
         super().__init__(f'No hay stock suficiente de "{product_name}" (disponibles: {available})')
 
 
-def create_order(db: Session, user_id: uuid.UUID, order_in: OrderCreate) -> Order:
+class MissingContactError(Exception):
+    pass
+
+
+class NotCancellableError(Exception):
+    pass
+
+
+def create_order(db: Session, user: User | None, order_in: OrderCreate) -> Order:
     """Crea el pedido y descuenta stock. Todo en una sola transacción: si
     algún producto no existe o no alcanza el stock, no se persiste nada.
+    `user` None = invitado: el contacto es el email/teléfono que dejó.
     """
+    customer_email = user.email if user else order_in.email
+    if not order_in.has_contact(customer_email):
+        raise MissingContactError()
+
     # Mismo producto en varias líneas: se suman (una sola validación de stock
     # y un solo item por producto). El dict conserva el orden del carrito.
     qty_by_product: dict[int, int] = defaultdict(int)
@@ -110,7 +124,8 @@ def create_order(db: Session, user_id: uuid.UUID, order_in: OrderCreate) -> Orde
         raise
 
     order = Order(
-        user_id=user_id,
+        user_id=user.id if user else None,
+        customer_email=customer_email,
         status="pendiente",
         total=total,
         shipping_full_name=order_in.shipping.full_name,
@@ -130,7 +145,7 @@ def list_orders_by_user(db: Session, user_id: uuid.UUID) -> list[Order]:
     return list(
         db.scalars(
             select(Order)
-            .options(selectinload(Order.items), selectinload(Order.user))
+            .options(selectinload(Order.items))
             .where(Order.user_id == user_id)
             .order_by(Order.created_at.desc())
         )
@@ -141,24 +156,37 @@ def list_all_orders(db: Session) -> list[Order]:
     # Items en una sola query extra (selectinload), no una por pedido.
     return list(
         db.scalars(
-            select(Order)
-            .options(selectinload(Order.items), selectinload(Order.user))
-            .order_by(Order.created_at.desc())
+            select(Order).options(selectinload(Order.items)).order_by(Order.created_at.desc())
         )
     )
 
 
-def update_order_status(db: Session, order_id: int, status: OrderStatus) -> Order:
-    """Cambia el estado respetando `ALLOWED_TRANSITIONS`. Al cancelar
-    devuelve al stock las unidades del pedido (de los productos que todavía
-    existen). El pedido se lockea para que dos cancelaciones simultáneas no
-    repongan el stock dos veces."""
-    order = db.scalar(
+def _lock_order(db: Session, order_id: int) -> Order | None:
+    """El pedido se lockea para que dos cancelaciones simultáneas (admin y
+    cliente, por ejemplo) no repongan el stock dos veces."""
+    return db.scalar(
         select(Order)
         .where(Order.id == order_id)
         .with_for_update()
         .execution_options(populate_existing=True)
     )
+
+
+def _restock(db: Session, order: Order) -> None:
+    """Devuelve al stock las unidades del pedido (de los productos que
+    todavía existen)."""
+    product_ids = {item.product_id for item in order.items if item.product_id is not None}
+    products = _lock_products(db, product_ids)
+    for item in order.items:
+        product = products.get(item.product_id) if item.product_id is not None else None
+        if product is not None:
+            product.stock += item.qty
+
+
+def update_order_status(db: Session, order_id: int, status: OrderStatus) -> Order:
+    """Cambia el estado respetando `ALLOWED_TRANSITIONS`. Al cancelar
+    repone el stock."""
+    order = _lock_order(db, order_id)
     if order is None:
         raise OrderNotFoundError(order_id)
     if status == order.status:
@@ -169,14 +197,28 @@ def update_order_status(db: Session, order_id: int, status: OrderStatus) -> Orde
         raise InvalidStatusTransitionError(order.status, status)
 
     if status == "cancelado":
-        product_ids = {item.product_id for item in order.items if item.product_id is not None}
-        products = _lock_products(db, product_ids)
-        for item in order.items:
-            product = products.get(item.product_id) if item.product_id is not None else None
-            if product is not None:
-                product.stock += item.qty
+        _restock(db, order)
 
     order.status = status
+    db.commit()
+    db.refresh(order)
+    return order
+
+
+def cancel_own_order(db: Session, order_id: int, user_id: uuid.UUID) -> Order:
+    """El cliente logueado cancela su propio pedido, solo mientras esté
+    `pendiente`: ya pagado o enviado hay plata o un envío de por medio y lo
+    resuelve el admin. Un pedido ajeno es "no encontrado" (no se revela que
+    existe). Los invitados no pasan por acá: avisan por WhatsApp."""
+    order = _lock_order(db, order_id)
+    if order is None or order.user_id != user_id:
+        db.rollback()
+        raise OrderNotFoundError(order_id)
+    if order.status != "pendiente":
+        db.rollback()
+        raise NotCancellableError(order_id)
+    _restock(db, order)
+    order.status = "cancelado"
     db.commit()
     db.refresh(order)
     return order

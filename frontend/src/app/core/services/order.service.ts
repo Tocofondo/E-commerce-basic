@@ -31,7 +31,7 @@ interface OrderItemResponse {
 
 interface OrderResponse {
   id: number;
-  userId: string;
+  userId: string | null;
   customerEmail: string | null;
   status: OrderStatus;
   total: number;
@@ -81,11 +81,14 @@ export class OrderService {
   /** Id del último `load()`: una respuesta de un pedido anterior se descarta. */
   private loadSeq = 0;
 
-  /** Crea el pedido para el usuario autenticado (el backend lo infiere del token). */
-  async place(items: CartItem[], shipping: ShippingInfo): Promise<Order> {
+  /** Crea el pedido para el usuario autenticado (el backend lo infiere del
+   * token) o, sin sesión, como invitado con el `email` que dejó (logueado se
+   * ignora: va el de la cuenta). */
+  async place(items: CartItem[], shipping: ShippingInfo, email: string | null = null): Promise<Order> {
     const body = {
       items: items.map(i => ({ productId: Number(i.product.id), qty: i.qty })),
       shipping,
+      email,
     };
     const res = await firstValueFrom(
       this.http.post<OrderResponse>(`${API_BASE_URL}/orders`, body),
@@ -125,6 +128,15 @@ export class OrderService {
     } finally {
       if (seq === this.loadSeq) this.loading.set(false);
     }
+  }
+
+  /** El cliente cancela su propio pedido (solo `pendiente`; el backend repone el stock). */
+  async cancelMine(id: number): Promise<void> {
+    const res = await firstValueFrom(
+      this.http.post<OrderResponse>(`${API_BASE_URL}/orders/${id}/cancel`, {}),
+    );
+    const order = toOrder(res);
+    this.orders.update(list => list.map(o => (o.id === id ? order : o)));
   }
 
   async updateStatus(id: number, status: OrderStatus): Promise<void> {

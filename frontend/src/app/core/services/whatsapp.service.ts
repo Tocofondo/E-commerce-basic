@@ -19,6 +19,8 @@ export class WhatsappService {
       `Cliente: ${order.shipping.fullName}`,
       `Dirección: ${order.shipping.address}, ${order.shipping.city} (${order.shipping.postalCode})`,
     ];
+    if (order.shipping.phone) lines.push(`Teléfono: ${order.shipping.phone}`);
+    if (order.customerEmail) lines.push(`Email: ${order.customerEmail}`);
     return lines.join('\n');
   }
 
@@ -27,9 +29,17 @@ export class WhatsappService {
     return `https://wa.me/${ADMIN_WHATSAPP}?text=${message}`;
   }
 
-  /** Link para escribirle al cliente, o `null` si el teléfono que cargó no se
-   * puede pasar a formato internacional (pedidos anteriores a la validación). */
+  /** Para que un invitado (sin "mis pedidos") pida cancelar su pedido. */
+  buildCancelLink(order: Order): string {
+    const message = encodeURIComponent(`Hola, quiero cancelar mi pedido #${order.id} (a nombre de ${order.shipping.fullName}).`);
+    return `https://wa.me/${ADMIN_WHATSAPP}?text=${message}`;
+  }
+
+  /** Link para escribirle al cliente, o `null` si no dejó teléfono o el que
+   * cargó no se puede pasar a formato internacional (pedidos anteriores a la
+   * validación). */
   buildCustomerLink(order: Order): string | null {
+    if (!order.shipping.phone) return null;
     const phone = normalizeArPhone(order.shipping.phone);
     if (!phone) return null;
     const message = encodeURIComponent(`Hola ${order.shipping.fullName}, te contactamos por tu pedido #${order.id}.`);

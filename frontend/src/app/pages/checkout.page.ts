@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, DestroyRef, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { DsInput } from '../design-system/index';
@@ -29,15 +29,27 @@ import { PesosPipe } from '../shared/store/pesos.pipe';
             </h1>
             @if (whatsappEnabled) {
               <p class="vy-muted max-w-md">
-                Mandanos el pedido por WhatsApp así nos llega al toque y coordinamos la entrega.
+                Te llevamos a WhatsApp para que nos mandes el pedido y coordinemos el pago y la entrega.
               </p>
-              <a [href]="whatsappLink(order)" target="_blank" rel="noopener" class="vy-btn vy-btn--marcador">
+              <a [href]="whatsappLink(order)" class="vy-btn vy-btn--marcador">
                 Enviar pedido por WhatsApp
               </a>
             } @else {
               <p class="vy-muted max-w-md">Te vamos a escribir para coordinar el pago y la entrega.</p>
             }
-            <a routerLink="/mis-pedidos" class="text-sm font-bold">Ver mis pedidos</a>
+            @if (order.userId) {
+              <a routerLink="/mis-pedidos" class="text-sm font-bold">Ver mis pedidos</a>
+            } @else {
+              <!-- Sin cuenta no hay "mis pedidos": cancelar o cambiar algo es por WhatsApp. -->
+              <p class="text-sm vy-muted max-w-md">
+                Guardá el número de pedido (#{{ order.id }}). Si querés cancelarlo o cambiar algo,
+                @if (whatsappEnabled) {
+                  <a [href]="cancelLink(order)" class="font-bold underline">avisanos por WhatsApp</a>.
+                } @else {
+                  avisanos por WhatsApp.
+                }
+              </p>
+            }
           </div>
         } @else if (cart.items().length === 0) {
           <h1 class="vy-titulo"><span class="vy-marker">Finalizar</span> <span class="vy-heavy">pedido</span></h1>
@@ -50,9 +62,24 @@ import { PesosPipe } from '../shared/store/pesos.pipe';
           <h1 class="vy-titulo"><span class="vy-marker">Finalizar</span> <span class="vy-heavy">pedido</span></h1>
           <div class="grid md:grid-cols-[3fr_2fr] gap-6 items-start">
             <form class="vy-card p-5 sm:p-6 flex flex-col gap-4" (ngSubmit)="onSubmit()">
+              @if (!isLoggedIn) {
+                <p class="text-sm vy-muted">
+                  Estás comprando sin cuenta.
+                  <a routerLink="/login" [queryParams]="{ redirect: '/checkout' }" class="font-bold underline">Ingresá</a>
+                  si querés seguir tus pedidos desde la web.
+                </p>
+              }
+              <h2 class="vy-marker text-xl">Contacto</h2>
+              @if (isLoggedIn) {
+                <p class="text-sm vy-muted">Te escribimos a {{ user?.email }} o al celular que dejes.</p>
+              } @else {
+                <p class="text-sm vy-muted">Dejanos al menos un email o un celular.</p>
+                <ds-input label="Email" type="email" placeholder="vos@ejemplo.com" [(ngModel)]="email" name="email" />
+              }
+              <ds-input label="Celular" type="tel" placeholder="341 555-1234" hint="Con código de área, sin 0 ni 15" [(ngModel)]="shipping.phone" name="phone" />
+
               <h2 class="vy-marker text-xl">Datos de envío</h2>
               <ds-input label="Nombre completo" [required]="true" [(ngModel)]="shipping.fullName" name="fullName" />
-              <ds-input label="Celular" type="tel" placeholder="341 555-1234" hint="Con código de área, sin 0 ni 15" [required]="true" [(ngModel)]="shipping.phone" name="phone" />
               <ds-input label="Dirección" [required]="true" [(ngModel)]="shipping.address" name="address" />
               <div class="grid grid-cols-2 gap-4">
                 <ds-input label="Ciudad" [required]="true" [(ngModel)]="shipping.city" name="city" />
@@ -109,10 +136,14 @@ export class CheckoutPage {
   private auth = inject(AuthService);
   private products = inject(ProductService);
   private whatsapp = inject(WhatsappService);
+  private destroyRef = inject(DestroyRef);
 
   // Nombre y teléfono precargados desde la cuenta (se pueden cambiar si el
   // envío es para otra persona). `name` cae en el email si no cargó nombre.
-  private user = this.auth.currentUser();
+  user = this.auth.currentUser();
+  isLoggedIn = this.user !== null;
+  /** Solo para invitados: logueado se usa el email de la cuenta. */
+  email = '';
   shipping: ShippingInfo = {
     fullName: this.user && this.user.name !== this.user.email ? this.user.name : '',
     phone: this.user?.phone ?? '',
@@ -125,19 +156,24 @@ export class CheckoutPage {
   loading = signal(false);
 
   async onSubmit(): Promise<void> {
-    if (!this.auth.currentUser()) return;
-
     this.error.set('');
-    const phone = normalizeArPhone(this.shipping.phone);
-    if (!phone) {
+    const rawPhone = this.shipping.phone?.trim() ?? '';
+    const email = this.isLoggedIn ? null : this.email.trim() || null;
+    if (!this.isLoggedIn && !email && !rawPhone) {
+      this.error.set('Dejanos un email o un celular para contactarte.');
+      return;
+    }
+    const phone = rawPhone ? normalizeArPhone(rawPhone) : null;
+    if (rawPhone && !phone) {
       this.error.set(INVALID_PHONE_MESSAGE);
       return;
     }
     this.loading.set(true);
     try {
-      const order = await this.orders.place(this.cart.items(), { ...this.shipping, phone });
+      const order = await this.orders.place(this.cart.items(), { ...this.shipping, phone }, email);
       this.cart.clear();
       this.placedOrder.set(order);
+      this.redirectToWhatsapp(order);
       // El backend descontó stock: refrescar para que el catálogo lo muestre.
       this.products.refresh();
     } catch (err) {
@@ -154,5 +190,19 @@ export class CheckoutPage {
 
   whatsappLink(order: Order): string {
     return this.whatsapp.buildOrderLink(order);
+  }
+
+  cancelLink(order: Order): string {
+    return this.whatsapp.buildCancelLink(order);
+  }
+
+  /** Lleva solo a WhatsApp con el pedido armado. Con una pausa corta para que
+   * se vea la confirmación (y, si es invitado, que se cancela por WhatsApp);
+   * el botón queda por si no abre. Mismo tab: un `window.open` después del
+   * `await` lo bloquean los navegadores de celular. */
+  private redirectToWhatsapp(order: Order): void {
+    if (!this.whatsappEnabled) return;
+    const timer = setTimeout(() => window.location.assign(this.whatsappLink(order)), 2500);
+    this.destroyRef.onDestroy(() => clearTimeout(timer));
   }
 }

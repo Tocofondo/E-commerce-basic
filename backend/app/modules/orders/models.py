@@ -26,18 +26,29 @@ class Order(Base):
             "status IN ('pendiente', 'pagado', 'enviado', 'entregado', 'cancelado')",
             name="ck_orders_status",
         ),
+        # Sin cuenta, el email o el teléfono es la única forma de contactar
+        # al cliente: al menos uno tiene que estar.
+        CheckConstraint(
+            "customer_email IS NOT NULL OR shipping_phone IS NOT NULL",
+            name="ck_orders_contact",
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    # NULL = compra como invitado (sin login).
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True
     )
+    # Email de contacto al momento de la compra: el de la cuenta si compró
+    # logueado, el que dejó en el checkout si es invitado (o NULL si solo dejó
+    # teléfono). Lowercase, como `users.email`.
+    customer_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     status: Mapped[OrderStatus] = mapped_column(String(20), default="pendiente", nullable=False)
     total: Mapped[Decimal] = mapped_column(MONEY_COLUMN, nullable=False)
     # Datos de envío aplanados (no una tabla aparte): un pedido tiene un solo
     # destino y no se reusa entre pedidos.
     shipping_full_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    shipping_phone: Mapped[str] = mapped_column(String(50), nullable=False)
+    shipping_phone: Mapped[str | None] = mapped_column(String(50), nullable=True)
     shipping_address: Mapped[str] = mapped_column(String(255), nullable=False)
     shipping_city: Mapped[str] = mapped_column(String(100), nullable=False)
     shipping_postal_code: Mapped[str] = mapped_column(String(20), nullable=False)
@@ -48,14 +59,10 @@ class Order(Base):
     items: Mapped[list["OrderItem"]] = relationship(
         back_populates="order", cascade="all, delete-orphan", order_by="OrderItem.id"
     )
-    user: Mapped[User] = relationship()
+    user: Mapped[User | None] = relationship()
 
     @property
-    def customer_email(self) -> str | None:
-        return self.user.email if self.user else None
-
-    @property
-    def shipping(self) -> dict[str, str]:
+    def shipping(self) -> dict[str, str | None]:
         return {
             "full_name": self.shipping_full_name,
             "phone": self.shipping_phone,

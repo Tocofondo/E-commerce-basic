@@ -38,7 +38,8 @@ export const routes: Routes = [
       { path: 'productos', component: CatalogPage },
       { path: 'productos/:id', component: ProductDetailPage },
       { path: 'carrito', component: CartPage },
-      { path: 'checkout', component: CheckoutPage, canActivate: [authGuard] },
+      // Sin login: se puede comprar como invitado (deja email o teléfono).
+      { path: 'checkout', component: CheckoutPage },
       { path: 'mis-pedidos', component: OrdersPage, canActivate: [authGuard] },
       { path: 'perfil', component: ProfilePage, canActivate: [authGuard] },
       // Botón de arrepentimiento: público, sin login (Res. 424/2020).

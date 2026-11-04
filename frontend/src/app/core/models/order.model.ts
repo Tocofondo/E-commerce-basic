@@ -4,7 +4,8 @@ export type OrderStatus = 'pendiente' | 'pagado' | 'enviado' | 'entregado' | 'ca
 
 export interface ShippingInfo {
   fullName: string;
-  phone: string;
+  /** Opcional: alcanza con email o teléfono. */
+  phone: string | null;
   address: string;
   city: string;
   postalCode: string;
@@ -12,8 +13,9 @@ export interface ShippingInfo {
 
 export interface Order {
   id: number;
-  userId: string;
-  /** Email de la cuenta que hizo el pedido (para el admin). */
+  /** `null` = compra como invitado. */
+  userId: string | null;
+  /** Email de contacto: el de la cuenta, o el que dejó el invitado. */
   customerEmail: string | null;
   items: CartItem[];
   total: number;

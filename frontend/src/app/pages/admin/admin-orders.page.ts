@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { DatePipe, DecimalPipe } from '@angular/common';
-import { DsButton, DsSpinner } from '../../design-system/index';
+import { DsBadge, DsButton, DsSpinner } from '../../design-system/index';
 import { ALLOWED_TRANSITIONS, OrderService } from '../../core/services/order.service';
 import { ProductService } from '../../core/services/product.service';
 import { apiErrorMessage } from '../../core/http-error';
@@ -10,7 +10,7 @@ import { Order, OrderStatus } from '../../core/models/order.model';
 @Component({
   selector: 'app-admin-orders-page',
   standalone: true,
-  imports: [DatePipe, DecimalPipe, DsButton, DsSpinner],
+  imports: [DatePipe, DecimalPipe, DsBadge, DsButton, DsSpinner],
   template: `
     <div class="flex flex-col gap-6">
       <h1 class="text-2xl font-bold text-neutral-800">Pedidos</h1>
@@ -57,8 +57,13 @@ import { Order, OrderStatus } from '../../core/models/order.model';
                     </button>
                   </td>
                   <td class="px-4 py-3 text-neutral-600">{{ order.createdAt | date: 'short' }}</td>
-                  <td class="px-4 py-3 text-neutral-600">{{ order.shipping.fullName }}</td>
-                  <td class="px-4 py-3 text-neutral-600">{{ order.shipping.phone }}</td>
+                  <td class="px-4 py-3 text-neutral-600">
+                    {{ order.shipping.fullName }}
+                    @if (!order.userId) {
+                      <ds-badge variant="neutral">Invitado</ds-badge>
+                    }
+                  </td>
+                  <td class="px-4 py-3 text-neutral-600">{{ order.shipping.phone ?? '—' }}</td>
                   <td class="px-4 py-3 text-neutral-600">{{ order.total | number: '1.2-2' }}</td>
                   <td class="px-4 py-3">
                     <!-- Solo el estado actual y los siguientes válidos (mismo mapa
@@ -78,6 +83,10 @@ import { Order, OrderStatus } from '../../core/models/order.model';
                     @if (customerWhatsappLink(order); as link) {
                       <a [href]="link" target="_blank" rel="noopener" class="text-sm text-success hover:underline">
                         Contactar cliente
+                      </a>
+                    } @else if (!order.shipping.phone && order.customerEmail) {
+                      <a [href]="'mailto:' + order.customerEmail" class="text-sm text-brand-600 hover:underline">
+                        Escribir por email
                       </a>
                     } @else {
                       <span class="text-xs text-neutral-400" title="El teléfono cargado no es un celular válido">Teléfono inválido</span>
@@ -110,7 +119,9 @@ import { Order, OrderStatus } from '../../core/models/order.model';
                           </div>
                           <div>
                             <p class="text-xs font-medium text-neutral-500 uppercase mb-1">Contacto</p>
-                            <p class="text-neutral-600">{{ order.shipping.phone }}</p>
+                            @if (order.shipping.phone) {
+                              <p class="text-neutral-600">{{ order.shipping.phone }}</p>
+                            }
                             @if (order.customerEmail) {
                               <a [href]="'mailto:' + order.customerEmail" class="text-brand-600 hover:underline break-all">{{ order.customerEmail }}</a>
                             }

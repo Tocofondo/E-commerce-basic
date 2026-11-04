@@ -128,7 +128,15 @@ app/
                 concurrent orders can't oversell. Status changes follow
                 `ALLOWED_TRANSITIONS` (mirrored in the frontend's
                 `order.service.ts`); `cancelado`/`entregado` are final and
-                cancelling restocks the items
+                cancelling restocks the items. `POST /orders` also accepts
+                guests (no token, `get_optional_active_user`; an invalid
+                token is still 401): `user_id` is NULL, contact is the
+                `email` in the body and/or `shipping.phone` (at least one,
+                `ck_orders_contact`), rate-limited per IP. `customer_email`
+                is stored on the order (account email when logged in).
+                A logged-in customer can cancel their own order while it's
+                `pendiente` (`POST /orders/{id}/cancel`, restocks, emails
+                `ORDER_NOTIFY_EMAIL`); guests ask by WhatsApp
     withdrawals/ "botón de arrepentimiento" (Res. 424/2020): public
                 `POST /withdrawals` (no login) returns a tracking code and
                 emails it; admin lists/resolves them at
@@ -188,7 +196,8 @@ src/app/
 
 Routes are declared in `app.routes.ts`: customer routes are nested under
 `StoreLayout`, admin routes under `AdminLayout` gated by `adminGuard`;
-`checkout`, `mis-pedidos`, `perfil` are gated by `authGuard`. Guards redirect to
+`mis-pedidos`, `perfil` are gated by `authGuard` (`checkout` is not: guests
+can buy). Guards redirect to
 `/login`, or to `/` if a non-admin hits `/admin`.
 
 ### Frontend data flow (cart is the only thing still local)
@@ -215,7 +224,8 @@ Bearer <token>` to API requests and logs out on a 401.
   `GET /orders`) are called explicitly by whichever page needs them
   (`orders.page.ts`, `admin-orders.page.ts`, `admin-dashboard.page.ts`).
   `place()` posts to `POST /orders`; the backend derives the buyer from the
-  JWT, not from a client-supplied id.
+  JWT, not from a client-supplied id (no JWT = guest order, with the
+  `email` passed to `place()`).
 - `CartService` (`ec_cart` in localStorage) is the one exception: the cart
   stays client-side and per-browser by design (see "Out of scope"). The
   stored product copies may be stale, so `items` swaps each one for the
@@ -232,8 +242,8 @@ reference pattern and add a `cart` module under `backend/app/modules/`.
 Orders placed at `/checkout` are persisted in Postgres and show up in
 `/admin/pedidos` from any device once the admin (re)loads that page — but
 there's no push: the admin isn't notified in real time, they have to go look.
-To close that gap, checkout also builds a `wa.me` link ("Enviar pedido por
-WhatsApp") prefilled with the order details, since a browser can't send
+To close that gap, checkout redirects to a `wa.me` link (also offered as an
+"Enviar pedido por WhatsApp" button) prefilled with the order details, since a browser can't send
 WhatsApp messages on its own without the WhatsApp Business API + a backend
 integration for it. Admin's WhatsApp number is `ADMIN_WHATSAPP` in
 `src/app/core/config/app.config.constants.ts`.

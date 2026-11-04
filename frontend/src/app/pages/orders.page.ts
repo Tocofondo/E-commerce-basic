@@ -1,8 +1,10 @@
-import { Component, computed, inject } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import { RouterLink } from '@angular/router';
 import { DsSpinner } from '../design-system/index';
 import { OrderService } from '../core/services/order.service';
+import { ProductService } from '../core/services/product.service';
+import { apiErrorMessage } from '../core/http-error';
 import { OrderStatus } from '../core/models/order.model';
 import { VyLogoComponent } from '../shared/brand/vy-logo.component';
 import { PesosPipe } from '../shared/store/pesos.pipe';
@@ -34,6 +36,9 @@ const HIGHLIGHTED: OrderStatus[] = ['pagado', 'enviado', 'entregado'];
           </div>
         } @else {
           <div class="flex flex-col gap-3">
+            @if (cancelError()) {
+              <p class="text-sm text-error">{{ cancelError() }}</p>
+            }
             @for (order of orders(); track order.id) {
               <div class="vy-card p-5 flex flex-col gap-3">
                 <div class="flex items-center justify-between gap-3 flex-wrap">
@@ -54,6 +59,21 @@ const HIGHLIGHTED: OrderStatus[] = ['pagado', 'enviado', 'entregado'];
                   <span class="text-sm vy-muted">{{ order.shipping.address }}, {{ order.shipping.city }}</span>
                   <span class="vy-heavy text-lg whitespace-nowrap">{{ order.total | pesos }}</span>
                 </div>
+
+                <!-- Solo mientras está pendiente: ya pagado lo resuelve el admin. -->
+                @if (order.status === 'pendiente') {
+                  <div class="flex justify-end">
+                    <button
+                      type="button"
+                      class="vy-btn vy-btn--secundario vy-btn--chico"
+                      [disabled]="cancellingId() !== null"
+                      (click)="cancel(order.id)"
+                    >
+                      @if (cancellingId() === order.id) { <span class="vy-btn-cargando"></span> }
+                      Cancelar pedido
+                    </button>
+                  </div>
+                }
               </div>
             }
           </div>
@@ -64,12 +84,33 @@ const HIGHLIGHTED: OrderStatus[] = ['pagado', 'enviado', 'entregado'];
 })
 export class OrdersPage {
   orderSrv = inject(OrderService);
+  private products = inject(ProductService);
+
+  cancellingId = signal<number | null>(null);
+  cancelError = signal('');
 
   // El backend ya filtra por el usuario autenticado (GET /orders/me).
   orders = computed(() => this.orderSrv.orders());
 
   constructor() {
     this.orderSrv.loadMine();
+  }
+
+  async cancel(id: number): Promise<void> {
+    if (!confirm(`¿Cancelar el pedido #${id}?`)) return;
+    this.cancelError.set('');
+    this.cancellingId.set(id);
+    try {
+      await this.orderSrv.cancelMine(id);
+      // Se repuso stock: que el catálogo lo muestre.
+      this.products.refresh();
+    } catch (err) {
+      // Ej. el admin lo marcó como pagado mientras tanto.
+      this.cancelError.set(apiErrorMessage(err, 'No se pudo cancelar el pedido.'));
+      this.orderSrv.loadMine();
+    } finally {
+      this.cancellingId.set(null);
+    }
   }
 
   isHighlighted(status: OrderStatus): boolean {

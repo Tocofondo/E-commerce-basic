@@ -68,38 +68,64 @@ def _order_summary(order: "Order") -> str:
         f"Total: {format_pesos(order.total)}\n\n"
         f"Envío a: {order.shipping_full_name}\n"
         f"{order.shipping_address}, {order.shipping_city} (CP {order.shipping_postal_code})\n"
-        f"Teléfono: {order.shipping_phone}"
+        f"Teléfono: {order.shipping_phone or '(no dejó)'}\n"
+        f"Email: {order.customer_email or '(no dejó)'}"
     )
 
 
-def build_order_emails(order: "Order", customer_email: str) -> list[tuple[str, str, str]]:
+def build_order_emails(order: "Order", *, registered: bool) -> list[tuple[str, str, str]]:
     """Mails a mandar por un pedido nuevo, como (destinatario, asunto, cuerpo):
-    confirmación al cliente y, si hay `ORDER_NOTIFY_EMAIL`, aviso al admin.
-    Se arman con el pedido todavía en la sesión; el envío va en background
-    (ver orders/router.py) con estos textos ya listos."""
+    confirmación al cliente si dejó email y, si hay `ORDER_NOTIFY_EMAIL`, aviso
+    al admin. Se arman con el pedido todavía en la sesión; el envío va en
+    background (ver orders/router.py) con estos textos ya listos."""
     summary = _order_summary(order)
-    emails = [
-        (
-            customer_email,
-            f"Recibimos tu pedido #{order.id} - {settings.STORE_NAME}",
-            f"¡Gracias por tu compra en {settings.STORE_NAME}!\n\n"
-            f"Tu pedido #{order.id} quedó registrado. Te vamos a escribir para "
-            "coordinar el pago y la entrega.\n\n"
-            f"{summary}\n\n"
-            f"Podés seguirlo en {settings.FRONTEND_URL}/mis-pedidos",
+    emails = []
+    if order.customer_email:
+        # Un invitado no tiene "mis pedidos" ni puede cancelar desde la web.
+        follow_up = (
+            f"Podés seguirlo en {settings.FRONTEND_URL}/mis-pedidos"
+            if registered
+            else "Si querés cancelarlo o cambiar algo, avisanos por WhatsApp "
+            f"con el número de pedido (#{order.id})."
         )
-    ]
+        emails.append(
+            (
+                order.customer_email,
+                f"Recibimos tu pedido #{order.id} - {settings.STORE_NAME}",
+                f"¡Gracias por tu compra en {settings.STORE_NAME}!\n\n"
+                f"Tu pedido #{order.id} quedó registrado. Te vamos a escribir para "
+                "coordinar el pago y la entrega.\n\n"
+                f"{summary}\n\n"
+                f"{follow_up}",
+            )
+        )
     if settings.ORDER_NOTIFY_EMAIL:
+        buyer = order.customer_email or order.shipping_phone
+        if not registered:
+            buyer = f"{buyer} (invitado)"
         emails.append(
             (
                 settings.ORDER_NOTIFY_EMAIL,
                 f"Nuevo pedido #{order.id} - {settings.STORE_NAME}",
-                f"Entró el pedido #{order.id} de {customer_email}.\n\n"
+                f"Entró el pedido #{order.id} de {buyer}.\n\n"
                 f"{summary}\n\n"
                 f"Gestionalo en {settings.FRONTEND_URL}/admin/pedidos",
             )
         )
     return emails
+
+
+def build_order_cancelled_email(order: "Order") -> tuple[str, str, str] | None:
+    """Aviso al admin de que el cliente canceló su pedido desde la web, o
+    None si no hay `ORDER_NOTIFY_EMAIL`."""
+    if not settings.ORDER_NOTIFY_EMAIL:
+        return None
+    return (
+        settings.ORDER_NOTIFY_EMAIL,
+        f"Pedido #{order.id} cancelado por el cliente - {settings.STORE_NAME}",
+        f"{order.customer_email} canceló el pedido #{order.id}. El stock ya se repuso.\n\n"
+        f"{_order_summary(order)}",
+    )
 
 
 def build_withdrawal_emails(request: "WithdrawalRequest") -> list[tuple[str, str, str]]:

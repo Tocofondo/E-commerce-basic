@@ -16,6 +16,11 @@ from app.modules.auth.schemas import TokenPayload
 from app.modules.auth.service import get_user_by_email
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_PREFIX}/auth/login")
+# Igual pero sin 401 cuando no hay header: para endpoints que también aceptan
+# invitados (ej. POST /orders).
+optional_oauth2_scheme = OAuth2PasswordBearer(
+    tokenUrl=f"{settings.API_V1_PREFIX}/auth/login", auto_error=False
+)
 
 credentials_exception = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -49,6 +54,18 @@ def get_current_active_user(current_user: User = Depends(get_current_user)) -> U
     if not current_user.is_active:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Usuario inactivo")
     return current_user
+
+
+def get_optional_active_user(
+    token: str | None = Depends(optional_oauth2_scheme),
+    db: Session = Depends(get_db),
+) -> User | None:
+    """None si no mandó token (invitado). Un token inválido o vencido sigue
+    siendo 401: así el frontend cierra la sesión en vez de comprar como
+    invitado sin darse cuenta."""
+    if token is None:
+        return None
+    return get_current_active_user(get_current_user(token, db))
 
 
 def get_current_admin_user(current_user: User = Depends(get_current_active_user)) -> User:
